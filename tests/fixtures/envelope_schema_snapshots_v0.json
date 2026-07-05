@@ -1,0 +1,498 @@
+{
+  "context": {
+    "body": {
+      "acting_for": "<null>",
+      "adapter": "<str>",
+      "agent": "<str>",
+      "allowed_scopes": [
+        "<str>",
+        "<str>"
+      ],
+      "backend_latency_ms": "<int>",
+      "contract_status": "<str>",
+      "degraded": "<bool>",
+      "degraded_reasons": [],
+      "dogfood_usefulness_status": "<str>",
+      "endpoint": "<str>",
+      "include_effective": [
+        "<str>",
+        "<str>"
+      ],
+      "include_requested": [
+        "<str>",
+        "<str>"
+      ],
+      "items": [
+        {
+          "backend": "<str>",
+          "canonicality": "<str>",
+          "id": "<str>",
+          "include_family": "<str>",
+          "private_class": "<str>",
+          "redaction_applied": "<bool>",
+          "redaction_labels": [],
+          "retrieval_backend": "<str>",
+          "scope": "<str>",
+          "snippet": "<str>",
+          "source_tier": "<str>",
+          "title": "<str>",
+          "truncated": "<bool>"
+        },
+        {
+          "backend": "<str>",
+          "canonicality": "<str>",
+          "id": "<str>",
+          "include_family": "<str>",
+          "private_class": "<str>",
+          "redaction_applied": "<bool>",
+          "redaction_labels": [],
+          "retrieval_backend": "<str>",
+          "scope": "<str>",
+          "snippet": "<str>",
+          "source_tier": "<str>",
+          "title": "<str>",
+          "truncated": "<bool>"
+        }
+      ],
+      "mode": "<str>",
+      "partial": "<bool>",
+      "provider": "<str>",
+      "raw_fallback_used": "<bool>",
+      "read_backend_called": "<bool>",
+      "read_receipt": {
+        "agent_profile": "<str>",
+        "audit_shape": {
+          "event_hash": "<str>",
+          "persisted": "<bool>",
+          "privacy_pass": "<bool>",
+          "raw_content_persisted": "<bool>",
+          "raw_source_path_persisted": "<bool>",
+          "schema": "<str>",
+          "sink": "<str>",
+          "source_ref": "<str>",
+          "subject_ref": "<str>"
+        },
+        "created_at": "<str>",
+        "deny_stage": "<null>",
+        "endpoint": "<str>",
+        "flight_record": {
+          "answerability": "<str>",
+          "curation_owner": "<str>",
+          "next_memory_action": "<str>",
+          "outcome": "<str>",
+          "receipt_id": "<str>",
+          "schema": "<str>",
+          "source_family": "<str>"
+        },
+        "grant_decision": "<str>",
+        "grant_id": "<str>",
+        "mode": "<str>",
+        "read_backend_called": "<bool>",
+        "receipt_id": "<str>",
+        "receipt_version": "<str>",
+        "registry_id": "<str>",
+        "reportable_artifacts": {
+          "byte_counts": [
+            "<int>",
+            "<int>"
+          ],
+          "content_hashes": [
+            "<str>",
+            "<str>"
+          ],
+          "label_counts": {
+            "include:memory": "<int>",
+            "include:project": "<int>",
+            "scope:context": "<int>",
+            "scope:wiki": "<int>"
+          },
+          "sanitized_examples_only": "<bool>"
+        },
+        "response_shape": {
+          "backend_latency_ms": "<int>",
+          "degraded": "<bool>",
+          "degraded_reasons": [],
+          "items_count": "<int>",
+          "partial": "<bool>",
+          "required_labels_present": "<bool>",
+          "source_age_seconds_max": "<int>",
+          "timeout_ms": "<int>"
+        },
+        "rollback_shape": {
+          "cache_purge_required": "<bool>",
+          "disable_descriptor": "<null>",
+          "disable_family": "<str>",
+          "revoke_grant": "<null>"
+        },
+        "safety_shape": {
+          "credential_ref_hits": "<int>",
+          "hygiene_scan": "<str>",
+          "private_path_hits": "<int>",
+          "raw_platform_id_hits": "<int>",
+          "raw_transcript_hits": "<int>",
+          "redaction_labels": [],
+          "tokenish_hits": "<int>"
+        },
+        "source_family": "<str>",
+        "token_subject": "<str>",
+        "usefulness_shape": {
+          "reason_code": "<str>",
+          "task_answerable_from_safe_content": "<bool>",
+          "verdict": "<str>"
+        },
+        "write_custody_reindex_posture": {
+          "custody_held": "<bool>",
+          "custody_marker": "<str>",
+          "custody_owner": "<str>",
+          "would_reindex": "<bool>",
+          "would_write_memory": "<bool>"
+        }
+      },
+      "read_receipt_requested": "<bool>",
+      "runtime": {
+        "audit_persisted": "<bool>",
+        "audit_receipt": {
+          "credential_refs_persisted": "<bool>",
+          "decision": "<str>",
+          "default_off_contract": "<bool>",
+          "endpoint": "<str>",
+          "event_hash": "<str>",
+          "persisted": "<bool>",
+          "privacy_pass": "<bool>",
+          "raw_content_persisted": "<bool>",
+          "raw_source_path_persisted": "<bool>",
+          "raw_subject_persisted": "<bool>",
+          "reason_code": "<str>",
+          "runtime_status": "<str>",
+          "schema": "<str>",
+          "schema_version": "<int>",
+          "sink": "<str>",
+          "source_ref": "<str>",
+          "subject_ref": "<str>"
+        },
+        "audit_sink": "<str>",
+        "decision": "<str>",
+        "default_off": "<bool>",
+        "held_surfaces": [
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>"
+        ],
+        "read_only": "<bool>",
+        "rollback": {
+          "cache_generation": "<null>",
+          "cache_purge_required": "<bool>",
+          "disable_descriptor": "<null>",
+          "disable_family": "<null>",
+          "disable_runtime": "<bool>",
+          "provider_restart_required": "<bool>",
+          "write_custody_or_reindex_required": "<bool>"
+        },
+        "runtime_registry_consumed": "<bool>",
+        "schema": "<str>",
+        "service_started": "<bool>",
+        "write_custody_or_reindex": "<bool>"
+      },
+      "runtime_registry_consumed": "<bool>",
+      "service_started": "<bool>",
+      "source_card_adapter": "<str>",
+      "source_card_adapter_status": "<str>",
+      "source_cards": [
+        {
+          "canonicality": "<str>",
+          "card_id": "<str>",
+          "include_family": "<str>",
+          "private_class": "<str>",
+          "redaction_applied": "<bool>",
+          "redaction_labels": [],
+          "reportable": "<bool>",
+          "retrieval_backend": "<str>",
+          "safe_summary": "<str>",
+          "source_tier": "<str>",
+          "title": "<str>"
+        },
+        {
+          "canonicality": "<str>",
+          "card_id": "<str>",
+          "include_family": "<str>",
+          "private_class": "<str>",
+          "redaction_applied": "<bool>",
+          "redaction_labels": [],
+          "reportable": "<bool>",
+          "retrieval_backend": "<str>",
+          "safe_summary": "<str>",
+          "source_tier": "<str>",
+          "title": "<str>"
+        }
+      ],
+      "timeout_ms": "<int>",
+      "token_subject": "<str>",
+      "write_custody_or_reindex": "<bool>"
+    },
+    "headers": {
+      "content-type": "<str>"
+    },
+    "status_code": "<int>"
+  },
+  "health": {
+    "body": {
+      "adapter": "<str>",
+      "contract_status": "<str>",
+      "dogfood_usefulness_status": "<str>",
+      "endpoint": "<str>",
+      "ok": "<bool>",
+      "provider": "<str>",
+      "raw_fallback_used": "<bool>",
+      "read_backend_called": "<bool>",
+      "runtime": {
+        "audit_persisted": "<bool>",
+        "audit_receipt": {
+          "credential_refs_persisted": "<bool>",
+          "decision": "<str>",
+          "default_off_contract": "<bool>",
+          "endpoint": "<str>",
+          "event_hash": "<str>",
+          "persisted": "<bool>",
+          "privacy_pass": "<bool>",
+          "raw_content_persisted": "<bool>",
+          "raw_source_path_persisted": "<bool>",
+          "raw_subject_persisted": "<bool>",
+          "reason_code": "<str>",
+          "runtime_status": "<str>",
+          "schema": "<str>",
+          "schema_version": "<int>",
+          "sink": "<str>",
+          "source_ref": "<str>",
+          "subject_ref": "<str>"
+        },
+        "audit_sink": "<str>",
+        "decision": "<str>",
+        "default_off": "<bool>",
+        "held_surfaces": [
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>"
+        ],
+        "read_only": "<bool>",
+        "rollback": {
+          "cache_generation": "<null>",
+          "cache_purge_required": "<bool>",
+          "disable_descriptor": "<null>",
+          "disable_family": "<null>",
+          "disable_runtime": "<bool>",
+          "provider_restart_required": "<bool>",
+          "write_custody_or_reindex_required": "<bool>"
+        },
+        "runtime_registry_consumed": "<bool>",
+        "schema": "<str>",
+        "service_started": "<bool>",
+        "write_custody_or_reindex": "<bool>"
+      },
+      "runtime_registry_consumed": "<bool>",
+      "service_started": "<bool>",
+      "source_card_adapter": "<str>",
+      "source_card_adapter_status": "<str>",
+      "write_custody_or_reindex": "<bool>"
+    },
+    "headers": {
+      "content-type": "<str>"
+    },
+    "status_code": "<int>"
+  },
+  "recall": {
+    "body": {
+      "acting_for": "<null>",
+      "adapter": "<str>",
+      "agent": "<null>",
+      "allowed_scopes": [
+        "<str>",
+        "<str>"
+      ],
+      "backend_latency_ms": "<int>",
+      "contract_status": "<str>",
+      "degraded": "<bool>",
+      "degraded_reasons": [],
+      "dogfood_usefulness_status": "<str>",
+      "endpoint": "<str>",
+      "items": [
+        {
+          "backend": "<str>",
+          "canonicality": "<str>",
+          "id": "<str>",
+          "include_family": "<str>",
+          "private_class": "<str>",
+          "redaction_applied": "<bool>",
+          "redaction_labels": [],
+          "retrieval_backend": "<str>",
+          "scope": "<str>",
+          "snippet": "<str>",
+          "source_tier": "<str>",
+          "title": "<str>",
+          "truncated": "<bool>"
+        }
+      ],
+      "n": "<int>",
+      "partial": "<bool>",
+      "provider": "<str>",
+      "query": "<str>",
+      "raw_fallback_used": "<bool>",
+      "read_backend_called": "<bool>",
+      "read_receipt": {
+        "agent_profile": "<str>",
+        "audit_shape": {
+          "event_hash": "<str>",
+          "persisted": "<bool>",
+          "privacy_pass": "<bool>",
+          "raw_content_persisted": "<bool>",
+          "raw_source_path_persisted": "<bool>",
+          "schema": "<str>",
+          "sink": "<str>",
+          "source_ref": "<str>",
+          "subject_ref": "<str>"
+        },
+        "created_at": "<str>",
+        "deny_stage": "<null>",
+        "endpoint": "<str>",
+        "flight_record": {
+          "answerability": "<str>",
+          "curation_owner": "<str>",
+          "next_memory_action": "<str>",
+          "outcome": "<str>",
+          "receipt_id": "<str>",
+          "schema": "<str>",
+          "source_family": "<str>"
+        },
+        "grant_decision": "<str>",
+        "grant_id": "<str>",
+        "mode": "<str>",
+        "read_backend_called": "<bool>",
+        "receipt_id": "<str>",
+        "receipt_version": "<str>",
+        "registry_id": "<str>",
+        "reportable_artifacts": {
+          "byte_counts": [
+            "<int>"
+          ],
+          "content_hashes": [
+            "<str>"
+          ],
+          "label_counts": {
+            "include:memory": "<int>",
+            "scope:wiki": "<int>"
+          },
+          "sanitized_examples_only": "<bool>"
+        },
+        "response_shape": {
+          "backend_latency_ms": "<int>",
+          "degraded": "<bool>",
+          "degraded_reasons": [],
+          "items_count": "<int>",
+          "partial": "<bool>",
+          "required_labels_present": "<bool>",
+          "source_age_seconds_max": "<int>",
+          "timeout_ms": "<int>"
+        },
+        "rollback_shape": {
+          "cache_purge_required": "<bool>",
+          "disable_descriptor": "<null>",
+          "disable_family": "<str>",
+          "revoke_grant": "<null>"
+        },
+        "safety_shape": {
+          "credential_ref_hits": "<int>",
+          "hygiene_scan": "<str>",
+          "private_path_hits": "<int>",
+          "raw_platform_id_hits": "<int>",
+          "raw_transcript_hits": "<int>",
+          "redaction_labels": [],
+          "tokenish_hits": "<int>"
+        },
+        "source_family": "<str>",
+        "token_subject": "<str>",
+        "usefulness_shape": {
+          "reason_code": "<str>",
+          "task_answerable_from_safe_content": "<bool>",
+          "verdict": "<str>"
+        },
+        "write_custody_reindex_posture": {
+          "custody_held": "<bool>",
+          "custody_marker": "<str>",
+          "custody_owner": "<str>",
+          "would_reindex": "<bool>",
+          "would_write_memory": "<bool>"
+        }
+      },
+      "read_receipt_requested": "<bool>",
+      "runtime": {
+        "audit_persisted": "<bool>",
+        "audit_receipt": {
+          "credential_refs_persisted": "<bool>",
+          "decision": "<str>",
+          "default_off_contract": "<bool>",
+          "endpoint": "<str>",
+          "event_hash": "<str>",
+          "persisted": "<bool>",
+          "privacy_pass": "<bool>",
+          "raw_content_persisted": "<bool>",
+          "raw_source_path_persisted": "<bool>",
+          "raw_subject_persisted": "<bool>",
+          "reason_code": "<str>",
+          "runtime_status": "<str>",
+          "schema": "<str>",
+          "schema_version": "<int>",
+          "sink": "<str>",
+          "source_ref": "<str>",
+          "subject_ref": "<str>"
+        },
+        "audit_sink": "<str>",
+        "decision": "<str>",
+        "default_off": "<bool>",
+        "held_surfaces": [
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>",
+          "<str>"
+        ],
+        "read_only": "<bool>",
+        "rollback": {
+          "cache_generation": "<null>",
+          "cache_purge_required": "<bool>",
+          "disable_descriptor": "<null>",
+          "disable_family": "<null>",
+          "disable_runtime": "<bool>",
+          "provider_restart_required": "<bool>",
+          "write_custody_or_reindex_required": "<bool>"
+        },
+        "runtime_registry_consumed": "<bool>",
+        "schema": "<str>",
+        "service_started": "<bool>",
+        "write_custody_or_reindex": "<bool>"
+      },
+      "runtime_registry_consumed": "<bool>",
+      "scope_effective": [
+        "<str>"
+      ],
+      "scope_requested": "<str>",
+      "service_started": "<bool>",
+      "source_card_adapter": "<str>",
+      "source_card_adapter_status": "<str>",
+      "timeout_ms": "<int>",
+      "token_subject": "<str>",
+      "write_custody_or_reindex": "<bool>"
+    },
+    "headers": {
+      "content-type": "<str>"
+    },
+    "status_code": "<int>"
+  },
+  "schema_version": "memory_seam_envelope_schema_snapshots_v0",
+  "snapshot_kind": "structural_json_shape"
+}

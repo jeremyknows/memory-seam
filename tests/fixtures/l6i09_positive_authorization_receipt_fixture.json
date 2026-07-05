@@ -1,0 +1,79 @@
+{
+  "schema_version": "l6i09-positive-authorization-receipt-fixture-v0",
+  "fixture_status": "non_authoritative_schema_fixture_only",
+  "source_floor": "7980a5b-or-later",
+  "dependency": "L6I.08 closed/PASS via issue #150 and PR #157",
+  "non_persistence": {
+    "persistent_storage_allowed": false,
+    "custody_receipt_persisted": false,
+    "audit_trail_persisted": false,
+    "cache_mutated": false,
+    "durable_write_record_created": false
+  },
+  "denied_receipt_semantics": {
+    "schema_family": "l6-write-intent-denial-receipt-v1",
+    "status": "denied_no_mutation_path",
+    "approval_recognized": false,
+    "mutation_attempted": false,
+    "mutation_supported": false,
+    "semantic_boundary": "runtime_denial_metadata_only"
+  },
+  "positive_authorization_recognized_mutation_held_fixture": {
+    "schema_version": "l6i09-positive-authorization-receipt-shape-v0",
+    "status": "positive_authorization_recognized_mutation_held",
+    "operation_class": "write_intent_preflight_candidate",
+    "approval_ref": "public-approval-ref-placeholder",
+    "actor_binding_ref": "actor-binding-ref-placeholder",
+    "custody_owner_role": "librarian",
+    "rollback_audit_plan_ref": "docs/l6-write-custody-rollback-audit-plan.md",
+    "mutation_attempted": false,
+    "mutation_supported": false,
+    "authorization_allowed_runtime_path": false,
+    "fixture_is_authoritative": false,
+    "fixture_is_persistent": false,
+    "guarded_counters": {
+      "provider_calls": 0,
+      "backend_calls": 0,
+      "source_stat_calls": 0,
+      "source_read_calls": 0,
+      "write_callbacks": 0,
+      "custody_callbacks": 0,
+      "delete_callbacks": 0,
+      "reindex_callbacks": 0,
+      "rollback_callbacks": 0,
+      "cache_purge_callbacks": 0
+    },
+    "report_safety": {
+      "public_issue_or_pr_refs_only": true,
+      "raw_private_source_text_included": false,
+      "credentials_or_auth_material_included": false,
+      "oauth_or_auth_file_material_included": false,
+      "private_absolute_paths_included": false,
+      "raw_platform_ids_included": false,
+      "raw_query_payloads_included": false,
+      "raw_payload_content_included": false,
+      "private_correlation_refs_included": false
+    },
+    "held_surfaces": [
+      "runtime_approval_acceptance",
+      "positive_allowed_runtime_path",
+      "write_execution",
+      "custody_transfer",
+      "custody_persistence",
+      "delete_execution",
+      "reindex_execution",
+      "rollback_execution",
+      "cache_purge_execution",
+      "provider_backend_callbacks",
+      "source_stat_source_read_callbacks",
+      "source_discovery",
+      "live_private_source_reads",
+      "credential_auth_env_keychain_oauth_authfile_reads",
+      "runtime_registry_consumption",
+      "service_listener_startup_cron_activation",
+      "publication_or_visibility_change",
+      "provider_prod_canary_authority",
+      "atlas_gate_movement"
+    ]
+  }
+}

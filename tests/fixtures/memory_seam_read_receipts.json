@@ -1,0 +1,569 @@
+{
+  "schema": "memory_seam_read_receipt_fixture_v0",
+  "source_floor": "fixture-source-floor-v0",
+  "posture": "static_fixture_only",
+  "no_go": {
+    "backend_changes": false,
+    "service_runtime_activation": false,
+    "global_mcp_mutation": false,
+    "live_reads": false,
+    "credential_reads": false,
+    "write_custody_or_reindex": false
+  },
+  "cases": [
+    {
+      "name": "unknown_family_denied_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-unknown-family",
+        "created_at": "2026-05-24T20:10:00Z",
+        "mode": "static_fixture",
+        "endpoint": "context",
+        "token_subject": "agent:example",
+        "agent_profile": "agent:example",
+        "source_family": "mystery_family",
+        "registry_id": "registry-missing-mystery-family",
+        "grant_id": "grant-none-unknown-family",
+        "grant_decision": "denied",
+        "deny_stage": "before_read",
+        "read_backend_called": false,
+        "response_shape": {
+          "items_count": 0,
+          "partial": true,
+          "degraded": true,
+          "degraded_reasons": [
+            "unknown_source_family"
+          ],
+          "required_labels_present": true,
+          "source_age_seconds_max": 0,
+          "backend_latency_ms": 0,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": []
+        },
+        "usefulness_shape": {
+          "verdict": "not_evaluated",
+          "task_answerable_from_safe_content": false,
+          "reason_code": "not_scored"
+        },
+        "rollback_shape": {
+          "disable_family": "mystery_family",
+          "disable_descriptor": null,
+          "revoke_grant": "grant-none-unknown-family",
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [],
+          "byte_counts": [],
+          "label_counts": {
+            "degraded_reason:unknown_source_family": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-3a531169baaf759d",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-7dc0a16aa54c5cd8",
+          "source_ref": "source-16ee8ff4a588dd1e",
+          "privacy_pass": true
+        }
+      }
+    },
+    {
+      "name": "blank_grant_denied_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-blank-grant",
+        "created_at": "2026-05-24T20:11:00Z",
+        "mode": "static_fixture",
+        "endpoint": "context",
+        "token_subject": "agent:example-target",
+        "agent_profile": "agent:example-target",
+        "source_family": "project_doc",
+        "registry_id": "family-project-doc-v0",
+        "grant_id": "grant-row-blank-6ad2f3b18c4e9001",
+        "grant_decision": "denied",
+        "deny_stage": "before_read",
+        "read_backend_called": false,
+        "response_shape": {
+          "items_count": 0,
+          "partial": true,
+          "degraded": true,
+          "degraded_reasons": [
+            "grant_blank_cell_denied"
+          ],
+          "required_labels_present": true,
+          "source_age_seconds_max": 0,
+          "backend_latency_ms": 0,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": []
+        },
+        "usefulness_shape": {
+          "verdict": "not_evaluated",
+          "task_answerable_from_safe_content": false,
+          "reason_code": "not_scored"
+        },
+        "rollback_shape": {
+          "disable_family": "project_doc",
+          "disable_descriptor": null,
+          "revoke_grant": "grant-row-blank-6ad2f3b18c4e9001",
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [],
+          "byte_counts": [],
+          "label_counts": {
+            "grant_decision:denied": 1,
+            "degraded_reason:grant_blank_cell_denied": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-3e80053655148024",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-c9459d041ef15f3a",
+          "source_ref": "source-f639a2d785c2f8f3",
+          "privacy_pass": true
+        }
+      }
+    },
+    {
+      "name": "descriptor_removed_denied_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-descriptor-removed",
+        "created_at": "2026-05-24T20:12:00Z",
+        "mode": "static_fixture",
+        "endpoint": "context",
+        "token_subject": "agent:example",
+        "agent_profile": "agent:example",
+        "source_family": "hermes_wiki_include",
+        "registry_id": "descriptor-wiki-include-v3",
+        "grant_id": "grant-sax-wiki-include-79a7b0d5ae561c42",
+        "grant_decision": "denied",
+        "deny_stage": "before_read",
+        "read_backend_called": false,
+        "response_shape": {
+          "items_count": 0,
+          "partial": true,
+          "degraded": true,
+          "degraded_reasons": [
+            "descriptor_removed"
+          ],
+          "required_labels_present": true,
+          "source_age_seconds_max": 0,
+          "backend_latency_ms": 0,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": []
+        },
+        "usefulness_shape": {
+          "verdict": "not_evaluated",
+          "task_answerable_from_safe_content": false,
+          "reason_code": "not_scored"
+        },
+        "rollback_shape": {
+          "disable_family": "hermes_wiki_include",
+          "disable_descriptor": null,
+          "revoke_grant": "grant-sax-wiki-include-79a7b0d5ae561c42",
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [],
+          "byte_counts": [],
+          "label_counts": {
+            "degraded_reason:descriptor_removed": 1,
+            "descriptor_state:removed": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-bbebe425231f6b4c",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-7dc0a16aa54c5cd8",
+          "source_ref": "source-5f3acc5fa291ebef",
+          "privacy_pass": true
+        }
+      }
+    },
+    {
+      "name": "protected_path_denied_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-protected-path",
+        "created_at": "2026-05-24T20:13:00Z",
+        "mode": "static_fixture",
+        "endpoint": "context",
+        "token_subject": "agent:example",
+        "agent_profile": "agent:example",
+        "source_family": "direct_file_verify",
+        "registry_id": "family-direct-file-verify-v0",
+        "grant_id": "grant-sax-direct-file-verify-c4b9d8ee4401a621",
+        "grant_decision": "denied",
+        "deny_stage": "before_read",
+        "read_backend_called": false,
+        "response_shape": {
+          "items_count": 0,
+          "partial": true,
+          "degraded": true,
+          "degraded_reasons": [
+            "protected_path_class_denied"
+          ],
+          "required_labels_present": true,
+          "source_age_seconds_max": 0,
+          "backend_latency_ms": 0,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": [
+            "path_class_only"
+          ]
+        },
+        "usefulness_shape": {
+          "verdict": "not_evaluated",
+          "task_answerable_from_safe_content": false,
+          "reason_code": "not_scored"
+        },
+        "rollback_shape": {
+          "disable_family": "direct_file_verify",
+          "disable_descriptor": null,
+          "revoke_grant": "grant-sax-direct-file-verify-c4b9d8ee4401a621",
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [],
+          "byte_counts": [],
+          "label_counts": {
+            "path_class:auth_or_session_or_log": 1,
+            "degraded_reason:protected_path_class_denied": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-306218c37d777dba",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-7dc0a16aa54c5cd8",
+          "source_ref": "source-3fb2920b8fc584eb",
+          "privacy_pass": true
+        }
+      }
+    },
+    {
+      "name": "sax_project_doc_allowed_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-sax-project-doc",
+        "created_at": "2026-05-24T20:14:00Z",
+        "mode": "static_fixture",
+        "endpoint": "context",
+        "token_subject": "agent:example",
+        "agent_profile": "agent:example",
+        "source_family": "project_doc",
+        "registry_id": "family-project-doc-v0",
+        "grant_id": "grant-sax-project-doc-145af0bc7d45c211",
+        "grant_decision": "allowed",
+        "deny_stage": null,
+        "read_backend_called": true,
+        "response_shape": {
+          "items_count": 1,
+          "partial": false,
+          "degraded": false,
+          "degraded_reasons": [],
+          "required_labels_present": true,
+          "source_age_seconds_max": 17,
+          "backend_latency_ms": 8,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": []
+        },
+        "usefulness_shape": {
+          "verdict": "not_evaluated",
+          "task_answerable_from_safe_content": true,
+          "reason_code": "not_scored"
+        },
+        "rollback_shape": {
+          "disable_family": "project_doc",
+          "disable_descriptor": "family-project-doc-v0",
+          "revoke_grant": null,
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [
+            "sha256:29d11cf28a7b065b8ce8d6d95d0c60729d63c26b7d433f28aa7fd4c5217cb8bb"
+          ],
+          "byte_counts": [
+            612
+          ],
+          "label_counts": {
+            "source_family:project_doc": 1,
+            "backend:filesystem": 1,
+            "privacy_class:atlas_private": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-cfb54dc630abea61",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-7dc0a16aa54c5cd8",
+          "source_ref": "source-f639a2d785c2f8f3",
+          "privacy_pass": true
+        }
+      }
+    },
+    {
+      "name": "useful_safe_content_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-useful-safe-content",
+        "created_at": "2026-05-24T20:15:00Z",
+        "mode": "static_fixture",
+        "endpoint": "context",
+        "token_subject": "agent:example",
+        "agent_profile": "agent:example",
+        "source_family": "project_doc",
+        "registry_id": "family-project-doc-v0",
+        "grant_id": "grant-sax-project-doc-145af0bc7d45c211",
+        "grant_decision": "allowed",
+        "deny_stage": null,
+        "read_backend_called": true,
+        "response_shape": {
+          "items_count": 1,
+          "partial": false,
+          "degraded": false,
+          "degraded_reasons": [],
+          "required_labels_present": true,
+          "source_age_seconds_max": 21,
+          "backend_latency_ms": 9,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": [
+            "secret_pattern",
+            "sensitive_vocabulary_line"
+          ]
+        },
+        "usefulness_shape": {
+          "verdict": "useful",
+          "task_answerable_from_safe_content": true,
+          "reason_code": "safe_context_sufficient"
+        },
+        "rollback_shape": {
+          "disable_family": "project_doc",
+          "disable_descriptor": "family-project-doc-v0",
+          "revoke_grant": null,
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [
+            "sha256:5cb76d14d4f879ea69a69010a09fb4a9d3b51eb4c0a4b6dfcf6abf6d6ba2ef31"
+          ],
+          "byte_counts": [
+            488
+          ],
+          "label_counts": {
+            "redaction_label:secret_pattern": 1,
+            "redaction_label:sensitive_vocabulary_line": 1,
+            "safe_card_survived": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-cfb54dc630abea61",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-7dc0a16aa54c5cd8",
+          "source_ref": "source-f639a2d785c2f8f3",
+          "privacy_pass": true
+        }
+      }
+    },
+    {
+      "name": "too_degraded_not_useful_receipt",
+      "receipt": {
+        "receipt_version": "memory_seam_read_receipt_v0",
+        "receipt_id": "rrv0-too-degraded",
+        "created_at": "2026-05-24T20:16:00Z",
+        "mode": "static_fixture",
+        "endpoint": "recall",
+        "token_subject": "agent:example",
+        "agent_profile": "agent:example",
+        "source_family": "qmd_fallback",
+        "registry_id": "family-qmd-fallback-v0",
+        "grant_id": "grant-sax-qmd-fallback-0f0c97fd3ba9d5e1",
+        "grant_decision": "allowed",
+        "deny_stage": null,
+        "read_backend_called": true,
+        "response_shape": {
+          "items_count": 0,
+          "partial": true,
+          "degraded": true,
+          "degraded_reasons": [
+            "qmd_fallback_not_primary",
+            "stale_index",
+            "too_redacted"
+          ],
+          "required_labels_present": true,
+          "source_age_seconds_max": 86400,
+          "backend_latency_ms": 14,
+          "timeout_ms": 1500
+        },
+        "safety_shape": {
+          "hygiene_scan": "pass",
+          "raw_platform_id_hits": 0,
+          "private_path_hits": 0,
+          "tokenish_hits": 0,
+          "credential_ref_hits": 0,
+          "raw_transcript_hits": 0,
+          "redaction_labels": [
+            "secret_pattern"
+          ]
+        },
+        "usefulness_shape": {
+          "verdict": "not_useful",
+          "task_answerable_from_safe_content": false,
+          "reason_code": "too_degraded"
+        },
+        "rollback_shape": {
+          "disable_family": "qmd_fallback",
+          "disable_descriptor": null,
+          "revoke_grant": null,
+          "cache_purge_required": false
+        },
+        "reportable_artifacts": {
+          "content_hashes": [],
+          "byte_counts": [],
+          "label_counts": {
+            "degraded_reason:qmd_fallback_not_primary": 1,
+            "degraded_reason:stale_index": 1,
+            "degraded_reason:too_redacted": 1
+          },
+          "sanitized_examples_only": true
+        },
+        "write_custody_reindex_posture": {
+          "would_write_memory": false,
+          "would_reindex": false,
+          "custody_owner": "librarian",
+          "custody_held": true,
+          "custody_marker": "librarian_owned_write_custody_held"
+        },
+        "audit_shape": {
+          "schema": "memory_seam_audit_receipt_v0",
+          "event_hash": "audit-5f061725e1d99d6c",
+          "sink": "metadata_only_return_value",
+          "persisted": false,
+          "raw_content_persisted": false,
+          "raw_source_path_persisted": false,
+          "subject_ref": "subject-7dc0a16aa54c5cd8",
+          "source_ref": "source-4fba942ae420c23e",
+          "privacy_pass": true
+        }
+      }
+    }
+  ]
+}

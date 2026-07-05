@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memory-seam"
+version = "0.1.0"
+description = "Portable no-live memory-boundary core for agent memory systems."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Jeremy Knows" }]
+keywords = ["agent-memory", "memory-boundary", "no-live", "read-only"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/jeremyknows/memory-seam"
+Issues = "https://github.com/jeremyknows/memory-seam/issues"
+
+[project.scripts]
+memory-seam = "memory_seam.cli:main"
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "mypy>=1.10", "pytest>=8"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src", "tests", "examples", "scripts"]
+strict = false
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/memory_seam"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/.github/workflows/tests.yml",
+  "/CONTRIBUTING.md",
+  "/LICENSE",
+  "/README.md",
+  "/ROADMAP.md",
+  "/SECURITY.md",
+  "/docs",
+  "/examples",
+  "/pyproject.toml",
+  "/scripts",
+  "/src",
+  "/tests",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
