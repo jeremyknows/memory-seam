@@ -14,6 +14,7 @@ def test_public_api_exports_core_provider_contracts():
     exported = set(memory_seam.__all__)
     expected = {
         "CONTRACT_STATUS",
+        "ADAPTER_PROTOCOL_VERSION",
         "ContextProvider",
         "HealthProvider",
         "MemorySeamProvider",
@@ -29,6 +30,7 @@ def test_public_api_exports_core_provider_contracts():
     assert expected <= exported
     for name in expected:
         assert getattr(memory_seam, name)
+    assert memory_seam.ADAPTER_PROTOCOL_VERSION == "0.2"
 
 
 def test_null_provider_satisfies_runtime_protocol_without_live_reads():

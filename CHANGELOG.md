@@ -2,25 +2,62 @@
 
 Memory Seam uses this changelog as the stability ledger for public API, schema,
 contract, and operator-facing behavior changes for the public Apache-2.0 source
-package. Record merged changes here before tagging or publishing a package
-artifact; do not use this file as authority to activate services, consume
-Runtime Registry, perform live reads, or add write/custody/reindex behavior.
+package. The format follows Keep a Changelog: every PR updates `[Unreleased]`
+before merge, and each entry is tagged **Breaking**, **Non-breaking**, or
+**Documentation-only**.
 
-## v0.1.0
+This file does not authorize service/listener activation, live source reads,
+Runtime Registry consumption, provider/prod/canary authority changes, package
+publication, or write/custody/reindex work.
 
-### Stability policy
+## [Unreleased]
 
-- Public API changes include exported modules under `memory_seam`, documented
-  contract dataclasses/protocols, CLI no-live smoke behavior, envelope schema
-  snapshots, receipt fields, provider interfaces, and bridge fixture versions.
-- Mark entries as **breaking**, **non-breaking**, or **documentation-only** so
-  downstream adapters can decide when migration work is required.
-- Breaking changes must include the affected surface, migration note, rollback
-  note, and the issue/PR that introduced the change.
-- Non-breaking changes should include the affected surface and the issue/PR that
-  introduced the change.
-- Documentation-only changes should call out when they do not alter package
-  behavior or schema shape.
+### Added
+
+- **Non-breaking** — Added `memory_seam.__version__` to the public API surface.
+  - Surface: exported API.
+  - Migration: none.
+  - Rollback: revert the version export if package metadata handling changes.
+- **Non-breaking** — Added a local markdown-folder provider example plus the
+  "Use Your Own Notes" demo for read-only local notes recall.
+  - Surface: examples and README operator workflow.
+  - Migration: none.
+  - Rollback: remove the example/demo files if the adapter contract changes.
+- **Non-breaking** — Added adapter protocol version `0.2` as
+  `ADAPTER_PROTOCOL_VERSION`, exported from `memory_seam`.
+  - Surface: exported API and adapter contract.
+  - Migration: adapters may pin or assert the protocol version before claiming
+    compatibility.
+  - Rollback: revert the constant/export before a tagged release if the protocol
+    shape changes again.
+- **Non-breaking** — Added `tests/adapter_certification.py`, a reusable pytest
+  certification helper for any `SourceAdapter`, covering root-relative paths,
+  absolute-path rejection, symlink escape rejection, snippet caps, zero-match
+  empty results, runtime posture flags, and allowed `retrieval_backend` labels.
+  - Surface: downstream fixture/certification helper.
+  - Migration: adapter authors should run the helper against their adapter.
+  - Rollback: revert helper and docs if the protocol moves to a packaged helper.
+
+### Changed
+
+- **Documentation-only** — Rewrote the README for a user-first quickstart and
+  clearer package scope.
+  - Surface: README.
+  - Migration: none.
+  - Rollback: revert README wording.
+- **Documentation-only** — Clarified adapter import-boundary wording from "no
+  adapters in package" to "core imports no adapter implementations"; in-package
+  adapter modules may exist when core does not import them.
+  - Surface: docs and AST import-boundary tests.
+  - Migration: keep adapter implementation dependencies pointed into core, not
+    from core into adapter implementations.
+  - Rollback: revert docs/tests wording.
+
+### Breaking
+
+- No breaking changes in `[Unreleased]`.
+
+## [0.1.0]
 
 ### Initial public release baseline
 
@@ -38,23 +75,38 @@ Runtime Registry, perform live reads, or add write/custody/reindex behavior.
 - **Documentation-only** — Public hygiene, docs taxonomy, release decision
   checklist, issue-railed autopilot template, Atlas Query migration guide, and
   private provenance quarantine guidance.
-- **Documentation-only** — F10 package boundary and release-authority docs cleanup
-  aligning README/docs/changelog/packaging on public v0.1.0 posture, no-live
-  examples, downstream adapter ownership, and held runtime/write authority.
+- **Documentation-only** — F10 package boundary and release-authority docs
+  cleanup aligning README/docs/changelog/packaging on public v0.1.0 posture,
+  no-live examples, downstream adapter ownership, and held runtime/write
+  authority.
+- **Documentation-only** — package boundary and release-authority docs cleanup
+  captured in `docs/package-boundary.md`.
 
-### Entry template for future PRs
+## Stability Policy
+
+- Public API changes include exported modules under `memory_seam`, documented
+  contract dataclasses/protocols, CLI no-live smoke behavior, envelope schema
+  snapshots, receipt fields, provider interfaces, and bridge fixture versions.
+- **Breaking** changes must include the affected surface, migration note,
+  rollback note, and the issue/PR that introduced the change.
+- **Non-breaking** changes should include the affected surface and the issue/PR
+  that introduced the change when available.
+- **Documentation-only** changes should call out when they do not alter package
+  behavior or schema shape.
+
+### Entry Template
 
 ```markdown
-- **breaking|non-breaking|documentation-only** — Short summary.
-  - Surface: exported API, schema snapshot, CLI, docs, packaging, or downstream
-    fixture.
+- **Breaking|Non-breaking|Documentation-only** — Short summary.
+  - Surface: exported API, schema snapshot, CLI, docs, packaging, or downstream fixture.
   - Migration: required downstream action, or `none`.
   - Rollback: safe rollback route, or `revert PR` when sufficient.
   - Evidence: issue #NN / PR #NN plus local and CI checks.
 ```
 
-## Runtime boundary
+## Runtime Boundary
 
 This changelog records source package changes only. It does not authorize
 service/listener activation, live source reads, Runtime Registry consumption,
-provider/prod/canary authority changes, or write/custody/reindex work.
+provider/prod/canary authority changes, package publication, or
+write/custody/reindex work.

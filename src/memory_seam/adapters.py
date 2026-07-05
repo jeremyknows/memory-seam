@@ -15,6 +15,7 @@ from .providers import MemorySeamProvider
 
 DOGFOOD_USEFULNESS_STATUS = "synthetic_safe_content_usefulness_proof"
 SAFE_SOURCE_CARD_ADAPTER_STATUS = "safe_source_card_adapter_no_live_metadata_only"
+ADAPTER_PROTOCOL_VERSION = "0.2"
 SYNTHETIC_USEFULNESS_RUBRIC_VERSION = "synthetic_usefulness_rubric_v0"
 SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION = "synthetic_recall_ranking_fixture_v0"
 
@@ -482,12 +483,14 @@ def synthetic_safe_content_provider() -> MemorySeamProvider:
 
 
 __all__ = [
+    "ADAPTER_PROTOCOL_VERSION",
     "AdapterMemorySeamProvider",
     "DOGFOOD_USEFULNESS_STATUS",
     "FORBIDDEN_SOURCE_CARD_FRAGMENTS",
     "SAFE_DOGFOOD_ITEMS",
     "SAFE_SOURCE_CARD_ADAPTER_STATUS",
     "SAFE_SOURCE_CARDS",
+    "SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION",
     "SYNTHETIC_USEFULNESS_RUBRIC_VERSION",
     "SourceAdapter",
     "SourceCard",
@@ -495,6 +498,7 @@ __all__ = [
     "SyntheticSafeContentAdapter",
     "SyntheticSourceCardAdapter",
     "assert_source_card_is_report_safe",
+    "rank_synthetic_recall_items",
     "score_synthetic_usefulness",
     "synthetic_safe_content_provider",
 ]

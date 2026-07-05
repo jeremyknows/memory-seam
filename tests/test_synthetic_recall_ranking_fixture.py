@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import memory_seam.adapters as adapters
 from memory_seam.adapters import (
+    ADAPTER_PROTOCOL_VERSION,
     SAFE_DOGFOOD_ITEMS,
     SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION,
     SyntheticSafeContentAdapter,
     rank_synthetic_recall_items,
 )
+
+
+def test_adapter_public_exports_include_protocol_and_ranking_fixture():
+    assert ADAPTER_PROTOCOL_VERSION == "0.2"
+    assert "ADAPTER_PROTOCOL_VERSION" in adapters.__all__
+    assert "SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION" in adapters.__all__
+    assert "rank_synthetic_recall_items" in adapters.__all__
 
 
 def test_synthetic_recall_ranking_orders_by_query_relevance_then_stable_tiebreak():

@@ -7,6 +7,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CORE_DIR = REPO_ROOT / "src" / "memory_seam"
+SUBPACKAGES = tuple(
+    sorted(path for path in CORE_DIR.rglob("*.py") if "__pycache__" not in path.parts)
+)
 BOUNDARY_DOC = REPO_ROOT / "docs" / "adapter-import-boundary.md"
 DOWNSTREAM_SMOKE_PLAN = REPO_ROOT / "docs" / "downstream-integration-smoke-plan.md"
 DOCS_INDEX = REPO_ROOT / "docs" / "README.md"
@@ -18,6 +21,7 @@ STDLIB_MODULES.update({"__future__", "typing_extensions"})
 STDLIB_PATH = Path(sysconfig.get_path("stdlib")).resolve()
 
 FORBIDDEN_IMPORT_PREFIXES = (
+    "adapters",
     "backends",
     "fastmcp",
     "mcp",
@@ -27,6 +31,10 @@ FORBIDDEN_IMPORT_PREFIXES = (
     "system_pipes",
     "keyring",
     "oauth",
+)
+FORBIDDEN_IN_PACKAGE_ADAPTER_IMPORTS = (
+    "memory_seam.adapters.local",
+    ".adapters.local",
 )
 
 FORBIDDEN_BOUNDARY_TERMS = (
@@ -56,9 +64,22 @@ def _imported_modules(path: Path) -> list[str]:
     return modules
 
 
+def _all_imported_modules(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            prefix = "." * node.level
+            if node.module:
+                modules.append(f"{prefix}{node.module}")
+    return modules
+
+
 def test_core_imports_are_stdlib_or_package_local_only():
     unexpected: list[str] = []
-    for path in sorted(CORE_DIR.glob("*.py")):
+    for path in SUBPACKAGES:
         for module in _imported_modules(path):
             top_level = _top_level_module(module)
             if top_level == "memory_seam" or top_level in STDLIB_MODULES:
@@ -70,11 +91,13 @@ def test_core_imports_are_stdlib_or_package_local_only():
 
 def test_core_imports_do_not_reference_downstream_adapter_surfaces():
     offenders: list[str] = []
-    for path in sorted(CORE_DIR.glob("*.py")):
-        for module in _imported_modules(path):
+    for path in SUBPACKAGES:
+        for module in _all_imported_modules(path):
             normalized = module.lower().replace("-", "_")
             if normalized.startswith(FORBIDDEN_IMPORT_PREFIXES):
-                offenders.append(f"{path.name}: {module}")
+                offenders.append(f"{path.relative_to(CORE_DIR)}: {module}")
+            if any(normalized.startswith(prefix) for prefix in FORBIDDEN_IN_PACKAGE_ADAPTER_IMPORTS):
+                offenders.append(f"{path.relative_to(CORE_DIR)}: {module}")
 
     assert offenders == []
 
@@ -91,7 +114,7 @@ def test_adapter_import_boundary_doc_is_discoverable_and_no_live():
         "# Adapter import-boundary compatibility",
         "downstream adapter wrapper -> memory_seam package -> Python standard library",
         "memory_seam package -> downstream adapter wrapper",
-        "The `src/memory_seam` package must remain importable",
+        "Core modules under `src/memory_seam` must remain importable",
         "downstream-integration-smoke-plan.md",
         "route_request",
         "provider_handlers",

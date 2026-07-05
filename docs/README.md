@@ -203,6 +203,7 @@ Use these for downstream bridge work that imports Memory Seam without duplicatin
 - [`atlas-query-bridge.md`](atlas-query-bridge.md) — standalone adapter contract fixture and bridge boundaries.
 - [`atlas-query-migration.md`](atlas-query-migration.md) — reference adapter migration guide, rollback plan, and no-submodule/no-pinned-production-checkout rule.
 - [`adapter-import-boundary.md`](adapter-import-boundary.md) — adapter import-boundary compatibility note for downstream wrappers that depend on the package without reversing the dependency into core.
+- [`adapter-certification.md`](adapter-certification.md) — adapter protocol v0.2 certification bar, including path/redaction/cap/posture requirements and the reusable pytest helper.
 - [`downstream-integration-smoke-plan.md`](downstream-integration-smoke-plan.md) — no-mutation downstream package import, synthetic context/recall smoke, expected output, rollback, and held authority plan.
 
 ## Examples

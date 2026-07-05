@@ -1,6 +1,6 @@
 # Adapter import-boundary compatibility
 
-Memory Seam stays a portable core package. Downstream adapter code may depend on Memory Seam, but Memory Seam must not import downstream adapter modules, Atlas runtime modules, service wiring, Runtime Registry clients, credential helpers, or private source discovery code.
+Memory Seam stays a portable core package. Downstream adapter code may depend on Memory Seam, but core modules must not import downstream adapter modules, Atlas runtime modules, service wiring, Runtime Registry clients, credential helpers, or private source discovery code.
 
 This note complements [`downstream-integration-smoke-plan.md`](downstream-integration-smoke-plan.md). The smoke plan is the executable downstream proof surface; this note defines the package boundary that the smoke is expected to preserve.
 
@@ -22,11 +22,11 @@ memory_seam package -> credential/auth/keychain/env readers
 memory_seam package -> live/private source discovery or raw file readers
 ```
 
-The core package may expose protocols, fixtures, route helpers, receipts, descriptors, policy helpers, synthetic providers, and default-off runtime helpers. Adapter implementation remains downstream and should import those public surfaces instead of copying core contracts into an adapter checkout.
+The core package may expose protocols, fixtures, route helpers, receipts, descriptors, policy helpers, synthetic providers, and default-off runtime helpers. Adapter implementation remains downstream and should import those public surfaces instead of copying core contracts into an adapter checkout. A future `memory_seam.adapters.local` adapter may live in-package, but core modules must not import it; dependency direction still flows from adapter implementation into core contracts.
 
 ## Core import contract
 
-The `src/memory_seam` package must remain importable from a clean downstream checkout after a local editable install or private wheel install. Importing Memory Seam must not require:
+Core modules under `src/memory_seam` must remain importable from a clean downstream checkout after a local editable install or private wheel install. Importing Memory Seam must not require:
 
 - an Atlas checkout;
 - FastMCP/Hermes service wiring;
@@ -36,7 +36,7 @@ The `src/memory_seam` package must remain importable from a clean downstream che
 - a service/listener process;
 - write, custody, reindex, or thread-retirement authority.
 
-The repository test suite enforces this with an AST-based import-boundary check over every committed core module. The check allows only relative `memory_seam` imports and Python standard-library imports unless a future review explicitly adds a public package dependency to `pyproject.toml`.
+The repository test suite enforces this with an AST-based import-boundary check over every committed core module and subpackage. The check allows only package-local imports and Python standard-library imports unless a future review explicitly adds a public package dependency to `pyproject.toml`; it also rejects downstream adapter, `memory_seam.adapters.local`, and MCP/runtime-service imports from core.
 
 ## Downstream compatibility expectation
 

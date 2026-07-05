@@ -36,7 +36,7 @@ def test_public_release_posture_is_explicit() -> None:
     packaging = normalized(PACKAGING)
 
     assert "Public v0.1.0 source package under Apache-2.0" in readme
-    assert "## v0.1.0" in changelog
+    assert "## [0.1.0]" in changelog
     assert "Initial public release baseline" in changelog
     assert "Memory Seam v0.1.0 is packaged" in packaging
     assert "License: Apache-2.0" in packaging
