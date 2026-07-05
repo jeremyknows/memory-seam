@@ -16,6 +16,8 @@ from memory_seam.cli import _json_safe, main
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+WORDMARK_FIRST_LINE = " __  __ ___ __  __  ___  ___ __   __"
+RECEIPT_GATE_LINE = "+----------------[ receipt gate ]----------------+"
 
 
 def run_cli(*args: str) -> dict:
@@ -88,6 +90,8 @@ def test_local_markdown_recall_human_output_happy_path(tmp_path: Path):
     assert "CLI recall test snippet" in completed.stdout
     assert "Receipt: verdict=useful; reason=safe_context_sufficient;" in completed.stdout
     assert "service_started=false" in completed.stdout
+    assert "\r" not in completed.stdout
+    assert WORDMARK_FIRST_LINE not in completed.stdout
     assert completed.stderr == ""
 
 
@@ -101,6 +105,8 @@ def test_local_markdown_recall_json_full_envelope(tmp_path: Path):
     payload = json.loads(completed.stdout)
     body = payload["body"]
 
+    assert "\r" not in completed.stdout
+    assert WORDMARK_FIRST_LINE not in completed.stdout
     assert payload["status_code"] == 200
     assert body["endpoint"] == "recall"
     assert body["provider"] == "local-markdown-cli"
@@ -152,6 +158,7 @@ def test_local_markdown_recall_uses_style_when_stdout_is_tty(monkeypatch, tmp_pa
     assert main(["recall", str(tmp_path), "taste", "--n", "1"]) == 0
 
     captured = capsys.readouterr()
+    assert f"\rmemory-seam: scanning {tmp_path} … 0 files\r" in captured.out
     assert "\033[36mmemory-seam v0.1.0 · adapter=markdown" in captured.out
     assert "1. \033[1mLaunch Notes\033[0m" in captured.out
     assert "\033[2m\033[36mlaunch.md\033[0m\033[0m" in captured.out
@@ -168,6 +175,7 @@ def test_local_markdown_recall_no_color_disables_style(monkeypatch, tmp_path: Pa
     assert main(["recall", str(tmp_path), "taste", "--n", "1"]) == 0
 
     captured = capsys.readouterr()
+    assert "\r" not in captured.out
     assert "\033[" not in captured.out
     assert "✓ Receipt: verdict=useful; reason=safe_context_sufficient;" in captured.out
 
@@ -195,6 +203,8 @@ def test_local_markdown_json_output_is_byte_identical_to_envelope_dump(monkeypat
 
     captured = capsys.readouterr()
     assert captured.out == expected + "\n"
+    assert "\r" not in captured.out
+    assert WORDMARK_FIRST_LINE not in captured.out
     assert "\033[" not in captured.out
     assert captured.err == ""
 
@@ -204,12 +214,13 @@ def test_banner_on_no_args_exits_zero():
 
     assert completed.returncode == 0
     lines = completed.stdout.splitlines()
-    assert lines[0].startswith("+") and set(lines[0][1:-1]) == {"-"} and lines[0].endswith("+")
-    assert lines[1] == "| memory-seam  v0.1.0 |"
-    assert lines[2] == lines[0]
-    # box borders must exactly match the content-line width (alignment is the point)
-    assert len(lines[0]) == len(lines[1])
-    assert "receipt-first memory boundary for AI agents" in completed.stdout
+    assert lines[0] == WORDMARK_FIRST_LINE
+    assert RECEIPT_GATE_LINE in lines
+    receipt_gate_index = lines.index(RECEIPT_GATE_LINE)
+    assert lines[receipt_gate_index][0] == "+"
+    assert lines[receipt_gate_index][-1] == "+"
+    assert len(lines[receipt_gate_index]) == len(RECEIPT_GATE_LINE)
+    assert "v0.1.0 · receipt-first memory boundary for AI agents" in completed.stdout
     assert 'usage: memory-seam recall <root> "query"' in completed.stdout
     assert completed.stderr == ""
 

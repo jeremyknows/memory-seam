@@ -44,6 +44,16 @@ FATAL_ADAPTER_REASONS = {
     "root_unavailable": "root is unavailable",
 }
 TAGLINE = "receipt-first memory boundary for AI agents"
+GATE_WORDMARK = r""" __  __ ___ __  __  ___  ___ __   __
+|  \/  | __|  \/  |/ _ \| _ \\ \ / /
+| |\/| | _|| |\/| | (_) |   / \ V /
+|_|  |_|___|_|  |_|\___/|_|_\  |_|
+
+        ___ ___   _   __  __
+       / __| __| /_\ |  \/  |
+       \__ \ _| / _ \| |\/| |
+       |___/___/_/ \_\_|  |_|"""
+RECEIPT_GATE = "+----------------[ receipt gate ]----------------+"
 
 
 def _version() -> str:
@@ -195,28 +205,38 @@ def _receipt_line(verdict: str, reason: str) -> str:
 
 
 def _banner() -> str:
-    name = "memory-seam"
-    version_text = f"v{_version()}"
-    inner = f" {name}  {version_text} "
-    border = "+" + "-" * len(inner) + "+"
     return "\n".join(
         (
-            border,
-            f"|{inner}|",
-            border,
-            TAGLINE,
+            _style.cyan(GATE_WORDMARK),
+            _style.dim(RECEIPT_GATE),
+            f"v{_version()} · {TAGLINE}",
             "usage: memory-seam recall <root> \"query\"",
             "       memory-seam context <root> [--json]",
         )
     )
 
 
-def _print_human_local_markdown(response: dict[str, Any], *, root: str | Path) -> None:
+def _scan_status_line(root: str | Path, files_scanned: int = 0) -> str:
+    root_label = str(Path(root).expanduser().absolute())
+    return f"memory-seam: scanning {root_label} … {files_scanned} files"
+
+
+def _print_scan_status(root: str | Path) -> None:
+    if not _style.enabled():
+        return
+    sys.stdout.write("\r" + _scan_status_line(root))
+    sys.stdout.flush()
+
+
+def _print_human_local_markdown(response: dict[str, Any], *, root: str | Path, overwrite_scan_line: bool = False) -> None:
     body = dict(response.get("body") or {})
     items = list(body.get("items") or [])
     root_label = str(Path(root).expanduser().absolute())
     ready = f"memory-seam v{_version()} · adapter=markdown · root={root_label} · {_scan_count(body)} files scanned"
-    print(_style.cyan(ready))
+    if overwrite_scan_line:
+        sys.stdout.write("\r" + _style.cyan(ready) + "\033[K\n")
+    else:
+        print(_style.cyan(ready))
     if not items:
         print("No matches.")
     for index, item in enumerate(items, start=1):
@@ -281,6 +301,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.endpoint in {"context", "recall"} and getattr(args, "root", None):
         if args.endpoint == "recall" and not args.query_text:
             parser.error('recall with a local root requires a query, e.g. memory-seam recall ./notes "launch plan"')
+        show_scan_status = not args.json and _style.enabled()
+        if show_scan_status:
+            _print_scan_status(args.root)
         response = local_markdown_response(
             args.endpoint,
             root=args.root,
@@ -289,12 +312,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         fatal = _fatal_adapter_message(args.root, response)
         if fatal is not None:
+            if show_scan_status:
+                sys.stdout.write("\r\033[K")
+                sys.stdout.flush()
             print(_style.red(fatal), file=sys.stderr)
             return 2
         if args.json:
             print(json.dumps(_json_safe(response), indent=2, sort_keys=True))
         else:
-            _print_human_local_markdown(response, root=args.root)
+            _print_human_local_markdown(response, root=args.root, overwrite_scan_line=show_scan_status)
         return 0 if int(response.get("status_code", 1)) < 400 else 1
 
     payload = no_live_response(

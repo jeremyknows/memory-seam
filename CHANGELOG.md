@@ -14,10 +14,21 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added
+  `memory_seam.local_adapters.jsonl_export.LocalJsonlExportAdapter`, a read-only
+  local JSONL/JSON export adapter with explicit field mapping, safe common-field
+  autodetection, malformed-row scan accounting, and per-file record caps.
+  - Surface: packaged adapter API and adapter test coverage.
+  - Migration: import `LocalJsonlExportAdapter` from
+    `memory_seam.local_adapters.jsonl_export` for local `.jsonl` and `.json`
+    export recall.
+  - Rollback: remove the adapter module and its tests if the local adapter
+    campaign changes direction.
 - **Non-breaking** — Added stdlib-only CLI polish for local markdown
-  recall/context: a small startup/version banner, TTY-aware ANSI styling for
-  human output, colored receipt verdict lines, and tests preserving byte-stable
-  `--json` output.
+  recall/context: the Gate Wordmark startup/version banner, TTY-aware ANSI
+  styling for human output, colored receipt verdict lines, a TTY-only scan
+  status line that resolves into the run summary, and tests preserving
+  byte-stable `--json` output.
   - Surface: CLI human output and CLI tests.
   - Migration: none; JSON envelopes are unchanged.
   - Rollback: revert `src/memory_seam/_style.py` and the CLI display-layer
