@@ -15,6 +15,28 @@ publication, or write/custody/reindex work.
 ### Added
 
 - **Non-breaking** — Added
+  `memory_seam.local_adapters.sqlite_notes.LocalSqliteAdapter`, a read-only
+  local SQLite notes adapter with explicit table/column mapping, app-cache path
+  blocking, row caps, statement progress limits, and schema-only table
+  inspection for copied databases.
+  - Surface: packaged adapter API and adapter test coverage.
+  - Migration: import `LocalSqliteAdapter` from
+    `memory_seam.local_adapters.sqlite_notes` for deliberately copied SQLite
+    notes databases.
+  - Rollback: remove the adapter module and its tests if the local adapter
+    campaign changes direction.
+- **Non-breaking** — Added
+  `memory_seam.local_adapters.git_tree.LocalGitTreeAdapter`, a read-only local
+  Git current-tree adapter that enumerates tracked files only with
+  `git ls-files -z`, rejects history access, skips binary/large/non-regular
+  files and submodule gitlinks, and returns friendly structured reasons when
+  Git is unavailable or the root is not a repository.
+  - Surface: packaged adapter API and adapter test coverage.
+  - Migration: import `LocalGitTreeAdapter` from
+    `memory_seam.local_adapters.git_tree` for tracked current-tree recall.
+  - Rollback: remove the adapter module and its tests if the local adapter
+    campaign changes direction.
+- **Non-breaking** — Added
   `memory_seam.local_adapters.jsonl_export.LocalJsonlExportAdapter`, a read-only
   local JSONL/JSON export adapter with explicit field mapping, safe common-field
   autodetection, malformed-row scan accounting, and per-file record caps.

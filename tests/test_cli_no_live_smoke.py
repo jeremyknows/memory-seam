@@ -16,8 +16,8 @@ from memory_seam.cli import _json_safe, main
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-WORDMARK_FIRST_LINE = " __  __ ___ __  __  ___  ___ __   __"
-RECEIPT_GATE_LINE = "+----------------[ receipt gate ]----------------+"
+WORDMARK_FIRST_LINE = "███╗   ███╗███████╗███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗"
+RECEIPT_GATE_LINE = "+───────────────────[ receipt gate ]───────────────────+"
 
 
 def run_cli(*args: str) -> dict:
