@@ -132,7 +132,7 @@ Deep docs live in [docs/README.md](docs/README.md).
 
 Start with `docs/README.md` for the documentation taxonomy across public package docs, runtime/contracts notes, downstream adapter notes, and examples. See `CHANGELOG.md` for the API/schema stability ledger.
 
-Public v0.1.0 source package under Apache-2.0 is packaged as a no-live/read-only core. It does not include live adapter implementation, service/listener activation, credentials, Runtime Registry consumption, unsupervised reads, writes/custody/reindex, provider/prod/canary authority, or package publication automation.
+Public v0.1.0 source package under Apache-2.0 is packaged as a no-live/read-only core. It does not include live adapter implementation, service/listener activation, credentials, runtime registry consumption, unsupervised reads, writes/custody/reindex, provider/prod/canary authority, or package publication automation.
 
 - `docs/atlas-query-migration.md` — migration guide for downstream Atlas Query adapters, package dependency shape, rollback, and no-submodule boundary.
 - `docs/f2-verifier-packet.md` — F2 verifier packet for policy semantics, denial-before-read evidence, CI/local checks, and residual no-live holds.
