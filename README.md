@@ -14,12 +14,26 @@ Requires Python >=3.10.
 pip install "git+https://github.com/jeremyknows/memory-seam.git"
 ```
 
-Clone and editable install alternative:
+Clone and local-source alternative:
 
 ```bash
 git clone https://github.com/jeremyknows/memory-seam.git
 cd memory-seam
-python3 -m pip install -e .
+PYTHONPATH=src python3 examples/quickstart_smoke.py
+```
+
+## For Agents
+
+Install line:
+
+```bash
+pip install "git+https://github.com/jeremyknows/memory-seam.git"
+```
+
+Copy-paste template prompt for a human to give their agent:
+
+```text
+Install memory-seam (pip install "git+https://github.com/jeremyknows/memory-seam.git"), then use `memory-seam recall <notes-root> "<question>" --json` to answer my questions from my notes. Always check the receipt_verdict (`read_receipt.usefulness_shape.verdict`) and safe_posture (`service_started`, `runtime_registry_consumed`, `raw_fallback_used`, `write_custody_or_reindex`) before trusting the output.
 ```
 
 ## 60-Second Quickstart
@@ -27,7 +41,7 @@ python3 -m pip install -e .
 ```bash
 git clone https://github.com/jeremyknows/memory-seam.git
 cd memory-seam
-python examples/quickstart_smoke.py
+PYTHONPATH=src python3 examples/quickstart_smoke.py
 ```
 
 Expected output shape, trimmed from a real run:
@@ -72,50 +86,43 @@ This proves the seam can answer a context request and a recall request through t
 
 ## Use Your Own Notes (2 minutes)
 
-Zero-setup demo, which creates a tiny local `./demo-notes` folder:
+After installing, point the CLI at any folder of markdown notes:
+
+```bash
+memory-seam recall ./docs "runtime boundary" --n 3
+```
+
+For a full machine-readable envelope:
+
+```bash
+memory-seam recall ./docs "runtime boundary" --json
+```
+
+Human output shows title, root-relative path, snippet, and one receipt line:
+
+```text
+1. Default-off runtime
+   default-off-runtime.md
+   The L3 runtime is an in-process skeleton...
+Receipt: verdict=useful; reason=safe_context_sufficient; safe_posture=read_backend_called=false, service_started=false, runtime_registry_consumed=false, raw_fallback_used=false, write_custody_or_reindex=false
+```
+
+Use `context` to scan the same markdown root without a query:
+
+```bash
+memory-seam context ./docs/patterns --json
+```
+
+The receipt proves the runtime authorized the request before the folder scan, the returned evidence is report-safe with root-relative paths, and the held surfaces stayed closed: no service startup, no Runtime Registry consumption, no raw fallback, and no write/custody/reindex behavior.
+
+Python alternative, using the same adapter/runtime shape:
 
 ```bash
 python3 examples/my_notes_quickstart.py
-```
-
-Point it at an Obsidian vault or any folder of markdown notes:
-
-```bash
 python3 examples/my_notes_quickstart.py ~/path/to/notes
 ```
 
-Expected output excerpt, trimmed from a real zero-setup run:
-
-```json
-{
-  "endpoint": "recall",
-  "items": [
-    {
-      "path": "memory-seam.md",
-      "title": "Memory Seam onboarding"
-    },
-    {
-      "path": "launch-plan.md",
-      "title": "Launch plan"
-    }
-  ],
-  "provider": "local-markdown-demo",
-  "receipt_reason": "safe_context_sufficient",
-  "receipt_verdict": "useful",
-  "safe_posture": {
-    "raw_fallback_used": false,
-    "read_backend_called": false,
-    "runtime_registry_consumed": false,
-    "service_started": false,
-    "write_custody_or_reindex": false
-  },
-  "status_code": 200
-}
-```
-
-The receipt proves the runtime authorized the recall before the folder scan, the returned evidence is report-safe with root-relative paths, and the held surfaces stayed closed: no service startup, no Runtime Registry consumption, no raw fallback, and no write/custody/reindex behavior.
-
-This is a reference example for local markdown folders; production backends arrive as adapters in v0.2.
+This is a reference path for local markdown folders; production backends arrive as adapters in v0.2.
 
 ## Build Your Own Provider
 

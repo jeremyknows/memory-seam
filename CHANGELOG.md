@@ -44,11 +44,23 @@ publication, or write/custody/reindex work.
     `examples.local_markdown_provider.LocalMarkdownProvider` remains a shim.
   - Rollback: revert the packaged adapter and keep the example shim pointing to
     the prior example implementation.
+- **Non-breaking** — Added the user-facing CLI front door for local markdown
+  adapter recall/context via `memory-seam recall <root> "<query>"` and
+  `memory-seam context <root>`.
+  - Surface: CLI, README operator workflow, and subprocess tests.
+  - Migration: none; rootless CLI commands keep the prior synthetic no-live
+    smoke behavior.
+  - Rollback: revert the CLI local markdown branch and README onboarding update.
 
 ### Changed
 
 - **Documentation-only** — Rewrote the README for a user-first quickstart and
   clearer package scope.
+  - Surface: README.
+  - Migration: none.
+  - Rollback: revert README wording.
+- **Documentation-only** — Added agent-first onboarding with an install line and
+  copy-paste template prompt for CLI-based notes recall.
   - Surface: README.
   - Migration: none.
   - Rollback: revert README wording.

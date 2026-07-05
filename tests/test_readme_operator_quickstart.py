@@ -12,8 +12,7 @@ def test_readme_has_copy_pasteable_install_and_smoke_commands():
     assert "## 60-Second Quickstart" in text
     assert "git clone https://github.com/jeremyknows/memory-seam.git" in text
     assert "cd memory-seam" in text
-    assert "python3 -m pip install -e ." in text
-    assert "python examples/quickstart_smoke.py" in text
+    assert "PYTHONPATH=src python3 examples/quickstart_smoke.py" in text
     assert "python3 -m pytest -q" in text
     assert "python3 scripts/public_hygiene_scan.py" in text
 
