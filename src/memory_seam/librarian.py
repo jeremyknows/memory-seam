@@ -182,7 +182,7 @@ def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: An
 
     mcp_config = _extract_json_body(_render(_resource_text("config/mcp.example.json.template"), json_replacements))
     server = mcp_config["mcpServers"]["memory-seam"]
-    server["args"] = ["--notes", str(notes_path), "--adapter", "markdown"]
+    server["args"] = ["--root", str(notes_path), "--adapter", "markdown"]
     mcp_config["adapter_bridge_note"] = (
         "MCP snippet intentionally keeps --adapter markdown until the memory-seam-mcp bridge follow-up; "
         f"librarian.config.json records primary_adapter={options.adapter}."

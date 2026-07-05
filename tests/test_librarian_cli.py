@@ -102,7 +102,7 @@ def test_librarian_init_happy_path_creates_workspace_from_templates(tmp_path: Pa
     server = mcp["mcpServers"]["memory-seam"]
     assert server["transport"] == "stdio"
     assert server["command"] == "memory-seam-mcp"
-    assert server["args"] == ["--notes", str(notes), "--adapter", "markdown"]
+    assert server["args"] == ["--root", str(notes), "--adapter", "markdown"]
     assert "env" not in server
 
 
