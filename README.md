@@ -70,6 +70,53 @@ Expected output shape, trimmed from a real run:
 
 This proves the seam can answer a context request and a recall request through the local runtime using committed synthetic fixtures only. The receipts are metadata-only, there are no live reads or raw fallbacks, and the posture flags stay fail-closed for service startup, Runtime Registry consumption, backend reads, and write/custody/reindex behavior.
 
+## Use Your Own Notes (2 minutes)
+
+Zero-setup demo, which creates a tiny local `./demo-notes` folder:
+
+```bash
+python3 examples/my_notes_quickstart.py
+```
+
+Point it at an Obsidian vault or any folder of markdown notes:
+
+```bash
+python3 examples/my_notes_quickstart.py ~/path/to/notes
+```
+
+Expected output excerpt, trimmed from a real zero-setup run:
+
+```json
+{
+  "endpoint": "recall",
+  "items": [
+    {
+      "path": "memory-seam.md",
+      "title": "Memory Seam onboarding"
+    },
+    {
+      "path": "launch-plan.md",
+      "title": "Launch plan"
+    }
+  ],
+  "provider": "local-markdown-demo",
+  "receipt_reason": "safe_context_sufficient",
+  "receipt_verdict": "useful",
+  "safe_posture": {
+    "raw_fallback_used": false,
+    "read_backend_called": false,
+    "runtime_registry_consumed": false,
+    "service_started": false,
+    "write_custody_or_reindex": false
+  },
+  "status_code": 200
+}
+```
+
+The receipt proves the runtime authorized the recall before the folder scan, the returned evidence is report-safe with root-relative paths, and the held surfaces stayed closed: no service startup, no Runtime Registry consumption, no raw fallback, and no write/custody/reindex behavior.
+
+This is a reference example for local markdown folders; production backends arrive as adapters in v0.2.
+
 ## Build Your Own Provider
 
 ```python

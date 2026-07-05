@@ -13,3 +13,4 @@ site-packages/
 *.egg-info/
 *.dist-info/
 .DS_Store
+demo-notes/
