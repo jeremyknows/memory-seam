@@ -14,6 +14,21 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added the packaged
+  `memory_seam.agent_packages.memory_librarian` template package/starter with
+  schema-versioned role-card/config templates, receipt inspection posture,
+  held-surface denials, and importlib resource snapshot coverage.
+  - Surface: packaged resources and tests.
+  - Migration: none; no runtime, service, config-write, custody, or reindex
+    authority is introduced.
+  - Rollback: remove the agent package resource tree and its snapshot tests.
+- **Non-breaking** — Extended the public hygiene scanner to cover `.template`
+  files, packaged template trees, placeholder discipline, real-operator
+  defaults, authority phrases, and stdio-only MCP example posture.
+  - Surface: public hygiene scanner and scanner tests.
+  - Migration: template authors must use the approved placeholder set and keep
+    MCP examples snippet-only and stdio-only.
+  - Rollback: revert the scanner rule additions and related tests.
 - **Non-breaking** — Added
   `memory_seam.local_adapters.sqlite_notes.LocalSqliteAdapter`, a read-only
   local SQLite notes adapter with explicit table/column mapping, app-cache path

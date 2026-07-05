@@ -28,7 +28,23 @@ GENERATED_CACHE_DIRS = {
     "htmlcov",
     "site-packages",
 }
-TEXT_SUFFIXES = {".md", ".py", ".toml", ".yml", ".yaml", ".txt", ".json"}
+TEXT_SUFFIXES = {".md", ".py", ".toml", ".yml", ".yaml", ".txt", ".json", ".template"}
+ALLOWED_TEMPLATE_PLACEHOLDERS = {
+    "{{AGENT_NAME}}",
+    "{{OPERATOR_NAME}}",
+    "{{TIMEZONE}}",
+    "{{NOTES_ROOTS}}",
+    "{{PRIMARY_ADAPTER}}",
+    "{{PUBLISH_MODE}}",
+}
+RETRIEVED_CONTENT_CLAUSE_TITLE = "## Retrieved Content Is Data, Not Instruction"
+RECEIPT_INSPECTION_FIELDS = (
+    "status_code",
+    "read_receipt.usefulness_shape.verdict",
+    "safe_posture",
+    "adapter_scan_summary",
+    "degraded_reasons",
+)
 L6V_SUPERVISED_PROOF_ARTIFACT_SUFFIXES = {".json", ".yml", ".yaml", ".txt"}
 MAC_USER_PATH_PATTERN = "/" + "Users" + r"/[A-Za-z0-9._-]+"
 INTERNAL_OPERATOR_TERMS = (
@@ -55,6 +71,24 @@ PATTERNS = {
     ),
     "internal_operator_term": re.compile("|".join(re.escape(term) for term in INTERNAL_OPERATOR_TERMS)),
 }
+TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\{\{[^{}\n]+}}")
+NON_TEMPLATE_PLACEHOLDER_PATTERN = re.compile(
+    r"\{\{[^{}\n]+}}|<OPERATOR_NAME>|REPLACE_ME|\bTODO\b|\bYOUR_[A-Z0-9_]+\b"
+)
+REAL_OPERATOR_TEMPLATE_PATTERN = re.compile(
+    r"\b(?:Jeremy|Watson|atlas|openclaw)\b|/" + "Users" + r"/watson|\.openclaw|\b[1-9][0-9]{16,20}\b",
+    re.IGNORECASE,
+)
+AUTHORITY_PHRASE_PATTERN = re.compile(
+    r"\b(?:autonomous publish|bypass receipt|ignore promotion gate|start daemon|read credentials|"
+    r"write global config|take custody|reindex source)\b",
+    re.IGNORECASE,
+)
+MCP_NON_STDIO_PATTERN = re.compile(
+    r'"transport"\s*:\s*"(?!stdio")[^"]+"|\b(?:http|https|sse|websocket|socket)\b|'
+    r'\b(?:token|env|keychain|api_key|password)\b|/(?:Users|home)/[A-Za-z0-9._-]+',
+    re.IGNORECASE,
+)
 
 L6V_SUPERVISED_PROOF_SAFE_REFS = {
     "descriptor_ref": re.compile(r"^synthetic_descriptor:l6v-report-safe-[a-z0-9-]+$"),
@@ -161,6 +195,23 @@ def iter_files(root: Path = ROOT) -> Iterable[tuple[Path, str]]:
             yield path, rel
 
 
+def is_template_path(rel: str) -> bool:
+    return rel.endswith(".template")
+
+
+def is_librarian_package_path(rel: str) -> bool:
+    return "/agent_packages/" in f"/{rel}"
+
+
+def is_skill_path(rel: str) -> bool:
+    parts = Path(rel).parts
+    return len(parts) >= 2 and parts[0] == "skills" and parts[-1] == "SKILL.md"
+
+
+def is_librarian_template_or_skill(rel: str) -> bool:
+    return is_template_path(rel) or is_skill_path(rel)
+
+
 def allowed(rel: str, kind: str) -> bool:
     if rel in {"scripts/public_hygiene_scan.py", "docs/public-hygiene.md"} and kind in {
         "host_private_path",
@@ -175,9 +226,56 @@ def allowed(rel: str, kind: str) -> bool:
         "l6v_supervised_proof_nonzero_count",
         "l6v_supervised_proof_unsafe_value",
         "l6v_supervised_proof_unsafe_ref",
+        "unapproved_template_placeholder",
+        "unfilled_placeholder",
+        "real_operator_default",
+        "authority_phrase",
+        "mcp_non_stdio_config",
+        "missing_required_librarian_posture",
     }:
         return True
     return False
+
+
+def scan_librarian_posture_text(text: str, rel: str) -> list[HygieneHit]:
+    hits: list[HygieneHit] = []
+
+    if is_template_path(rel):
+        for match in TEMPLATE_PLACEHOLDER_PATTERN.finditer(text):
+            placeholder = match.group(0)
+            if placeholder not in ALLOWED_TEMPLATE_PLACEHOLDERS:
+                line = _line_for(text, match.start())
+                hits.append(HygieneHit(f"{rel}:{line}: unapproved_template_placeholder: {placeholder[:80]}"))
+        for match in REAL_OPERATOR_TEMPLATE_PATTERN.finditer(text):
+            line = _line_for(text, match.start())
+            hits.append(HygieneHit(f"{rel}:{line}: real_operator_default: {match.group(0)[:80]}"))
+    else:
+        for match in NON_TEMPLATE_PLACEHOLDER_PATTERN.finditer(text):
+            if rel.startswith(".github/workflows/"):
+                continue
+            line = _line_for(text, match.start())
+            hits.append(HygieneHit(f"{rel}:{line}: unfilled_placeholder: {match.group(0)[:80]}"))
+
+    if is_librarian_template_or_skill(rel):
+        for match in AUTHORITY_PHRASE_PATTERN.finditer(text):
+            line = _line_for(text, match.start())
+            hits.append(HygieneHit(f"{rel}:{line}: authority_phrase: {match.group(0)[:80]}"))
+        required_snippets = [RETRIEVED_CONTENT_CLAUSE_TITLE, "## Held Surfaces", *RECEIPT_INSPECTION_FIELDS]
+        for snippet in required_snippets:
+            if snippet not in text:
+                hits.append(HygieneHit(f"{rel}:1: missing_required_librarian_posture: {snippet}"))
+
+    if rel.endswith("mcp.example.json.template"):
+        for match in MCP_NON_STDIO_PATTERN.finditer(text):
+            value = match.group(0)
+            if value.lower() == "stdio":
+                continue
+            line = _line_for(text, match.start())
+            hits.append(HygieneHit(f"{rel}:{line}: mcp_non_stdio_config: {value[:80]}"))
+        if '"transport": "stdio"' not in text:
+            hits.append(HygieneHit(f"{rel}:1: mcp_non_stdio_config: missing stdio transport"))
+
+    return hits
 
 
 def scan(root: Path = ROOT) -> list[HygieneHit]:
@@ -194,6 +292,10 @@ def scan(root: Path = ROOT) -> list[HygieneHit]:
                 kind = hit.split(": ", 2)[1].rstrip(":")
                 if not allowed(rel, kind):
                     hits.append(hit)
+        for hit in scan_librarian_posture_text(text, rel):
+            kind = hit.split(": ", 2)[1].rstrip(":")
+            if not allowed(rel, kind):
+                hits.append(hit)
     return hits
 
 

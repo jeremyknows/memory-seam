@@ -194,6 +194,59 @@ def test_public_hygiene_scan_allows_report_safe_l6v_supervised_proof_artifact(tm
     assert public_hygiene_scan.scan(tmp_path) == []
 
 
+def test_public_hygiene_scan_scans_template_suffixes(tmp_path: Path):
+    private_path = "/" + "Users" + "/alice/project"
+    write_text(tmp_path, "src/pkg/agent_packages/example/templates/unsafe.template", private_path)
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("host_private_path" in hit for hit in hits)
+
+
+def test_public_hygiene_scan_rejects_unapproved_template_placeholders(tmp_path: Path):
+    bad_placeholder = "{" * 2 + "BAD_NAME" + "}" * 2
+    write_text(tmp_path, "starter.template", f"operator {bad_placeholder}")
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("unapproved_template_placeholder" in hit for hit in hits)
+
+
+def test_public_hygiene_scan_rejects_unfilled_placeholders_outside_templates(tmp_path: Path):
+    bad_placeholder = "{" * 2 + "AGENT_NAME" + "}" * 2
+    write_text(tmp_path, "docs/example.md", f"operator {bad_placeholder}")
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("unfilled_placeholder" in hit for hit in hits)
+
+
+def test_public_hygiene_scan_rejects_real_operator_defaults_in_templates(tmp_path: Path):
+    real_name = "Jer" + "emy"
+    write_text(tmp_path, "starter.template", f"operator {real_name}")
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("real_operator_default" in hit for hit in hits)
+
+
+def test_public_hygiene_scan_rejects_authority_phrases_in_templates(tmp_path: Path):
+    write_text(tmp_path, "starter.template", "The starter may autonomous publish updates.")
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("authority_phrase" in hit for hit in hits)
+
+
+def test_public_hygiene_scan_rejects_non_stdio_mcp_examples(tmp_path: Path):
+    text = '{"mcpServers": {"memory": {"transport": "http"}}}'
+    write_text(tmp_path, "src/pkg/agent_packages/example/templates/config/mcp.example.json.template", text)
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("mcp_non_stdio_config" in hit for hit in hits)
+
+
 def test_l6v_supervised_proof_hygiene_ratchet_is_documented():
     text = DOC.read_text(encoding="utf-8")
     assert "L6V supervised source-card proof ratchet" in text
