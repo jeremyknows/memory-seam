@@ -14,6 +14,14 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added `memory-seam librarian dogfood <workspace>` as an
+  in-process v0.2 proof runner for memory-librarian workspaces.
+  - Surface: librarian CLI, deterministic dogfood report JSON, docs, and
+    subprocess tests.
+  - Migration: none; the runner writes only inside the supplied workspace
+    memory folder and a temporary sandbox copy under that workspace.
+  - Rollback: remove the dogfood subcommand, report helpers, docs, and
+    dogfood-specific tests.
 - **Non-breaking** — Added quick-win recall diagnostics for local adapter empty
   results, top-level receipt summaries, degradation warnings, and local recall
   `n` clamping to 1..20.

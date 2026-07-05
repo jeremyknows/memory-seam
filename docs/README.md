@@ -31,6 +31,7 @@ Use these when evaluating or contributing to the standalone package surface:
 - [`l4-closure-review.md`](l4-closure-review.md) — L4 closure packet with issue/PR evidence, verifier commands, residual holds, and next-lane recommendation.
 - [`f2-verifier-packet.md`](f2-verifier-packet.md) — F2 verifier packet with issue/PR evidence, local verifier commands, residual holds, and the supervised F3 unlock decision.
 - [`f3-manual-pull-dogfood.md`](f3-manual-pull-dogfood.md) — supervised no-live source-card-first context/recall dogfood harness, commands, expected output, and held authority.
+- [`librarian-dogfood.md`](librarian-dogfood.md) — in-process memory-librarian template-package dogfood runner covering doctor, health/context, five receipted recalls, hostile-note data handling, draft separation, and deterministic reports.
 - [`f3-source-card-usefulness-proof.md`](f3-source-card-usefulness-proof.md) — source-card usefulness proof packet with PASS/HOLD/FAIL outcomes, safe source-card IDs, fallback avoidance, and held no-live surfaces.
 - [`f3-verifier-packet.md`](f3-verifier-packet.md) — F3 supervised-pull verifier packet with issue/PR evidence, no-live trust-boundary finding, residual holds, and the F4 no-service identity unlock decision.
 - [`no-service-identity-semantics.md`](no-service-identity-semantics.md) — F4 no-service identity semantics for caller subject, acting-for, audience/scope, descriptor subject, query/body mismatch, and held service/live/write authority.

@@ -422,6 +422,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     librarian_doctor = librarian_subparsers.add_parser("doctor", help="check a memory librarian workspace posture")
     librarian_doctor.add_argument("dest", help="librarian workspace directory")
+
+    librarian_dogfood = librarian_subparsers.add_parser("dogfood", help="run the in-process librarian dogfood proof")
+    librarian_dogfood.add_argument("workspace", help="memory librarian workspace directory")
+    librarian_dogfood.add_argument("--notes", help="notes root; defaults to first configured notes root")
+    librarian_dogfood.add_argument("--now", default="unset", help="deterministic ISO timestamp for the report")
+    librarian_dogfood.add_argument("--json", action="store_true", help="print the report JSON")
     return parser
 
 
@@ -432,12 +438,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(_banner())
         return 0
     if args.endpoint == "librarian":
-        from .librarian import doctor_librarian, init_librarian, make_init_options
+        from .librarian import doctor_librarian, dogfood_librarian, init_librarian, make_dogfood_options, make_init_options
 
         if args.librarian_command == "init":
             return init_librarian(make_init_options(args))
         if args.librarian_command == "doctor":
             return doctor_librarian(Path(args.dest))
+        if args.librarian_command == "dogfood":
+            return dogfood_librarian(make_dogfood_options(args))
         parser.error("missing librarian command")
     if args.endpoint in {"context", "recall"} and getattr(args, "root", None):
         if args.endpoint == "recall" and not args.query_text:

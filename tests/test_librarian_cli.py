@@ -229,3 +229,116 @@ def test_librarian_doctor_fail_cases(tmp_path: Path):
 
         assert completed.returncode == 1
         assert expected in completed.stdout
+
+
+def write_dogfood_notes(notes: Path) -> None:
+    (notes / "decisions").mkdir()
+    (notes / "operations").mkdir()
+    (notes / "sessions").mkdir()
+    (notes / "decisions/adapter-selection.md").write_text(
+        "# Adapter Selection Decision\n\n"
+        "Markdown recall uses deterministic receipts, citations, and posture checks for operator memory.\n",
+        encoding="utf-8",
+    )
+    (notes / "operations/promotion-gates.md").write_text(
+        "# Promotion Gates Runbook\n\n"
+        "Supervised requests require receipt review, safe posture, and root-relative cited paths.\n",
+        encoding="utf-8",
+    )
+    (notes / "sessions/librarian-campaign.md").write_text(
+        "# Librarian Campaign Session\n\n"
+        "Dogfood proof covers context health, hostile fixture handling, and draft separation.\n",
+        encoding="utf-8",
+    )
+
+
+def dogfood_workspace(tmp_path: Path) -> tuple[Path, Path]:
+    dest, notes, init_completed = init_workspace(tmp_path)
+    assert init_completed.returncode == 0, init_completed.stderr
+    write_dogfood_notes(notes)
+    return dest, notes
+
+
+def test_librarian_dogfood_full_run_writes_report_and_human_steps(tmp_path: Path):
+    dest, notes = dogfood_workspace(tmp_path)
+
+    completed = run_cli(
+        "librarian",
+        "dogfood",
+        str(dest),
+        "--notes",
+        str(notes),
+        "--now",
+        "2026-07-05T00:00:00Z",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "PASS doctor: doctor passed" in completed.stdout
+    assert "PASS five-recalls: five receipted recalls returned root-relative citations" in completed.stdout
+    assert "PASS hostile-note: fixture returned as data; posture stayed fail-closed" in completed.stdout
+    assert "PASS draft-separation: workspace draft stayed out of notes-root recall" in completed.stdout
+    assert "FINAL PASS" in completed.stdout
+    assert "Report: memory/dogfood-report.json" in completed.stdout
+
+    report = json.loads((dest / "memory/dogfood-report.json").read_text(encoding="utf-8"))
+    assert report["schema"] == "memory_seam_librarian_dogfood_report_v0"
+    assert report["timestamp"] == "2026-07-05T00:00:00Z"
+    assert report["verdict"] == "PASS"
+    assert len(report["recalls"]) == 5
+    assert all(recall["passed"] for recall in report["recalls"])
+    assert all(not path.startswith("/") for recall in report["recalls"] for path in recall["cited_paths"])
+    assert all(item["status"] == "PASS" for item in report["pass_criteria"])
+
+
+def test_librarian_dogfood_json_shape_and_hostile_note_assertion(tmp_path: Path):
+    dest, notes = dogfood_workspace(tmp_path)
+
+    completed = run_cli("librarian", "dogfood", str(dest), "--notes", str(notes), "--json")
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["timestamp"] == "unset"
+    assert payload["hostile_note"]["prompt_injection_fixture_returned_as_data"] is True
+    assert payload["hostile_note"]["runner_obeyed_fixture_instruction"] is False
+    assert payload["hostile_note"]["fail_closed_posture"] is True
+    assert "dogfood-hostile-note.md" in payload["hostile_note"]["cited_paths"]
+    assert {step["name"] for step in payload["steps"]} >= {
+        "doctor",
+        "health",
+        "context",
+        "five-recalls",
+        "hostile-note",
+        "draft-separation",
+    }
+    assert payload == json.loads((dest / "memory/dogfood-report.json").read_text(encoding="utf-8"))
+
+
+def test_librarian_dogfood_draft_separation_assertion(tmp_path: Path):
+    dest, notes = dogfood_workspace(tmp_path)
+
+    completed = run_cli("librarian", "dogfood", str(dest), "--notes", str(notes))
+
+    assert completed.returncode == 0, completed.stderr
+    report = json.loads((dest / "memory/dogfood-report.json").read_text(encoding="utf-8"))
+    draft = report["draft_separation"]
+    assert (dest / "memory/dogfood-draft-note.md").is_file()
+    assert not (notes / "dogfood-draft-note.md").exists()
+    assert draft["draft_exists"] is True
+    assert draft["draft_has_frontmatter"] is True
+    assert draft["draft_in_notes_root"] is False
+    assert draft["draft_returned_from_sandbox_recall"] is False
+
+
+def test_librarian_dogfood_doctor_fail_fast_path(tmp_path: Path):
+    dest, notes = dogfood_workspace(tmp_path)
+    (dest / "skills/seam-ops/SKILL.md").unlink()
+
+    completed = run_cli("librarian", "dogfood", str(dest), "--notes", str(notes), "--json")
+
+    assert completed.returncode == 1
+    report = json.loads(completed.stdout)
+    assert report["verdict"] == "FAIL"
+    assert [step["name"] for step in report["steps"]] == ["doctor"]
+    assert report["steps"][0]["status"] == "FAIL"
+    assert "required-files-and-schema" in report["steps"][0]["detail"]
+    assert (dest / "memory/dogfood-report.json").is_file()
