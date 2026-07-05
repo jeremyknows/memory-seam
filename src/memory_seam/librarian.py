@@ -15,8 +15,6 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Sequence
 
 from .agent_packages import TEMPLATE_SCHEMA_VERSION
-from .local_adapters.factory import valid_local_adapter_list, valid_local_adapter_names
-
 TEMPLATE_PACKAGE = "memory_seam.agent_packages.memory_librarian"
 ROLE_CARD_FILES = ("CLAUDE.md", "SOUL.md", "TOOLS.md", "USER.md", "AGENTS.md", "MEMORY.md")
 CONFIG_FILES = ("config/librarian.config.json", "config/mcp.example.json")
@@ -25,7 +23,8 @@ SKILL_NAMES = ("seam-ops", "seam-recall", "seam-filing", "seam-curation")
 SKILL_FILES = tuple(f"skills/{name}/SKILL.md" for name in SKILL_NAMES)
 REQUIRED_FILES = (*ROLE_CARD_FILES, *CONFIG_FILES, *PLACEHOLDER_READMES, *SKILL_FILES)
 ALLOWED_MODES = {"draft-only", "supervised-request"}
-SUPPORTED_INIT_ADAPTERS = frozenset(valid_local_adapter_names())
+SUPPORTED_INIT_ADAPTERS = frozenset({"markdown"})
+MARKDOWN_ONLY_ADAPTER_MESSAGE = "non-markdown adapters land in a follow-up; markdown only in v0.2"
 DOGFOOD_REPORT_REL = "memory/dogfood-report.json"
 DOGFOOD_DRAFT_REL = "memory/dogfood-draft-note.md"
 HOSTILE_NOTE_REL = "dogfood-hostile-note.md"
@@ -94,6 +93,10 @@ AUTHORITY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 MCP_UNSAFE_PATTERN = re.compile(r"\b(?:http|https|sse|websocket|socket|daemon)\b", re.IGNORECASE)
+LABEL_CONTROL_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+LABEL_MARKDOWN_STRUCTURAL_PATTERN = re.compile(r"[#>`\[\]{}|]")
+LABEL_WHITESPACE_PATTERN = re.compile(r"\s+")
+LABEL_MAX_CHARS = 120
 
 
 @dataclass(frozen=True)
@@ -144,6 +147,17 @@ def _json_string_content(value: str) -> str:
     return json.dumps(value)[1:-1]
 
 
+def _plain_single_line_label(value: str, *, field: str) -> str:
+    label = LABEL_CONTROL_PATTERN.sub(" ", str(value))
+    label = LABEL_MARKDOWN_STRUCTURAL_PATTERN.sub(" ", label)
+    label = LABEL_WHITESPACE_PATTERN.sub(" ", label).strip()
+    if len(label) > LABEL_MAX_CHARS:
+        label = label[:LABEL_MAX_CHARS].rstrip()
+    if not label:
+        raise ValueError(f"{field} must contain a plain single-line label")
+    return label
+
+
 def _render(text: str, replacements: dict[str, str]) -> str:
     for key, value in replacements.items():
         text = text.replace("{" * 2 + key + "}" * 2, value)
@@ -175,10 +189,17 @@ def _configured_notes_path(dest: Path, notes: Path | None) -> Path:
 def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: Any = sys.stderr) -> int:
     dest = options.dest.expanduser()
     if options.adapter not in SUPPORTED_INIT_ADAPTERS:
-        print(f"unsupported adapter {options.adapter!r}; valid adapters: {valid_local_adapter_list()}", file=stderr)
+        print(f"memory-seam librarian init: {MARKDOWN_ONLY_ADAPTER_MESSAGE}", file=stderr)
         return 2
     if options.mode not in ALLOWED_MODES:
         print("publish mode must be draft-only or supervised-request", file=stderr)
+        return 2
+    try:
+        agent_name = _plain_single_line_label(options.agent_name, field="agent_name")
+        operator_name = _plain_single_line_label(options.operator_name, field="operator_name")
+        timezone = _plain_single_line_label(options.timezone, field="timezone")
+    except ValueError as exc:
+        print(f"memory-seam librarian init: {exc}", file=stderr)
         return 2
     if dest.exists() and not dest.is_dir():
         print(f"memory-seam librarian init: destination exists and is not a directory: {dest}", file=stderr)
@@ -194,16 +215,20 @@ def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: An
     (dest / "skills").mkdir(exist_ok=True)
 
     doc_replacements = {
-        "AGENT_NAME": options.agent_name,
-        "OPERATOR_NAME": options.operator_name,
-        "TIMEZONE": options.timezone,
+        "AGENT_NAME": agent_name,
+        "OPERATOR_NAME": operator_name,
+        "TIMEZONE": timezone,
         "NOTES_ROOTS": "the configured notes root in config/librarian.config.json",
         "PRIMARY_ADAPTER": options.adapter,
         "PUBLISH_MODE": options.mode,
     }
     json_replacements = {
-        **doc_replacements,
+        "AGENT_NAME": _json_string_content(agent_name),
+        "OPERATOR_NAME": _json_string_content(operator_name),
+        "TIMEZONE": _json_string_content(timezone),
         "NOTES_ROOTS": _json_string_content(str(notes_path)),
+        "PRIMARY_ADAPTER": _json_string_content(options.adapter),
+        "PUBLISH_MODE": _json_string_content(options.mode),
     }
 
     for filename in ROLE_CARD_FILES:
@@ -219,10 +244,7 @@ def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: An
     mcp_config = _extract_json_body(_render(_resource_text("config/mcp.example.json.template"), json_replacements))
     server = mcp_config["mcpServers"]["memory-seam"]
     server["args"] = ["--root", str(notes_path), "--adapter", "markdown"]
-    mcp_config["adapter_bridge_note"] = (
-        "MCP snippet intentionally keeps --adapter markdown until the memory-seam-mcp bridge follow-up; "
-        f"librarian.config.json records primary_adapter={options.adapter}."
-    )
+    mcp_config["adapter_bridge_note"] = MARKDOWN_ONLY_ADAPTER_MESSAGE
     _write_text(dest / "config/mcp.example.json", json.dumps(mcp_config, indent=2, sort_keys=True) + "\n")
 
     for rel in PLACEHOLDER_READMES:
@@ -337,6 +359,15 @@ def _check_mode(config: dict[str, Any] | None, config_error: str | None) -> Doct
     return DoctorCheck("publish-mode", True, mode)
 
 
+def _check_primary_adapter(config: dict[str, Any] | None, config_error: str | None) -> DoctorCheck:
+    if config_error:
+        return DoctorCheck("primary-adapter", False, config_error)
+    adapter = str((config or {}).get("primary_adapter") or "")
+    if adapter != "markdown":
+        return DoctorCheck("primary-adapter", False, MARKDOWN_ONLY_ADAPTER_MESSAGE)
+    return DoctorCheck("primary-adapter", True, "markdown only in v0.2")
+
+
 def _check_notes_roots(config: dict[str, Any] | None, config_error: str | None) -> DoctorCheck:
     if config_error:
         return DoctorCheck("notes-roots", False, config_error)
@@ -441,6 +472,7 @@ def doctor_librarian(dest: Path, *, stdout: Any = sys.stdout) -> int:
         _check_required_files(root),
         _check_no_placeholders(root),
         _check_mode(config, config_error),
+        _check_primary_adapter(config, config_error),
         _check_notes_roots(config, config_error),
         _check_credentials(root),
         _check_mcp_stdio(root, mcp, mcp_error),
@@ -560,6 +592,11 @@ def _posture_is_fail_closed(body: dict[str, Any]) -> bool:
     return not any(_safe_posture_flags(body).values())
 
 
+def _posture_has_no_unsafe_authority(body: dict[str, Any]) -> bool:
+    flags = _safe_posture_flags(body)
+    return not any(value for key, value in flags.items() if key != "read_backend_called")
+
+
 def _receipt_summary_for(response: dict[str, Any]) -> dict[str, Any]:
     body = dict(response.get("body") or {})
     summary = body.get("receipt_summary") if isinstance(body.get("receipt_summary"), dict) else {}
@@ -572,10 +609,43 @@ def _receipt_summary_for(response: dict[str, Any]) -> dict[str, Any]:
         "posture_verdict": summary.get("posture_verdict") or "missing",
         "reason_code": summary.get("reason_code") or usefulness.get("reason_code") or "missing",
         "fail_closed_posture": _posture_is_fail_closed(body),
+        "unsafe_authority_flags_absent": _posture_has_no_unsafe_authority(body),
+        "read_backend_called": _safe_posture_flags(body)["read_backend_called"],
         "items_count": len(items),
         "cited_paths": [str(item.get("path") or "") for item in items],
         "adapter_scan_summary": body.get("adapter_scan_summary") if isinstance(body.get("adapter_scan_summary"), dict) else {},
     }
+
+
+def _response_items(response: dict[str, Any]) -> list[dict[str, Any]]:
+    body = response.get("body") if isinstance(response.get("body"), dict) else {}
+    return [item for item in (body.get("items") or []) if isinstance(item, dict)]
+
+
+def _hostile_data_snippets(response: dict[str, Any]) -> list[dict[str, str]]:
+    snippets: list[dict[str, str]] = []
+    for item in _response_items(response):
+        if str(item.get("path") or "") != HOSTILE_NOTE_REL:
+            continue
+        snippet = str(item.get("snippet") or "")
+        if not snippet:
+            continue
+        snippets.append(
+            {
+                "path": HOSTILE_NOTE_REL,
+                "classification": "retrieved_content_data_not_instruction",
+                "snippet": snippet,
+            }
+        )
+    return snippets
+
+
+def _has_prompt_injection_label(response: dict[str, Any]) -> bool:
+    for item in _response_items(response):
+        labels = item.get("redaction_labels") if isinstance(item.get("redaction_labels"), list) else []
+        if "prompt-injection-risk" in {str(label) for label in labels}:
+            return True
+    return False
 
 
 def _recall_checks_pass(response: dict[str, Any]) -> bool:
@@ -584,7 +654,7 @@ def _recall_checks_pass(response: dict[str, Any]) -> bool:
         summary["status_code"] == 200
         and summary["receipt_verdict"] != "missing"
         and summary["posture_verdict"] != "missing"
-        and summary["fail_closed_posture"] is True
+        and summary["unsafe_authority_flags_absent"] is True
         and summary["items_count"] > 0
         and all(_is_root_relative_path(path) for path in summary["cited_paths"])
     )
@@ -750,13 +820,13 @@ def dogfood_librarian(options: DogfoodOptions, *, stdout: Any = sys.stdout) -> i
             context_summary["status_code"] == 200
             and context_summary["receipt_verdict"] != "missing"
             and context_summary["posture_verdict"] != "missing"
-            and context_summary["fail_closed_posture"] is True
+            and context_summary["unsafe_authority_flags_absent"] is True
         )
         steps.append(
             _step(
                 "context",
                 context_passed,
-                "status_code=200; receipt and posture present" if context_passed else "context receipt/posture failed",
+                "status_code=200; receipt and report-safe posture present" if context_passed else "context receipt/posture failed",
                 receipts=[context_summary],
             )
         )
@@ -797,15 +867,29 @@ def dogfood_librarian(options: DogfoodOptions, *, stdout: Any = sys.stdout) -> i
         )
         hostile_summary = _receipt_summary_for(hostile_response)
         hostile_paths = hostile_summary["cited_paths"]
-        hostile_returned = HOSTILE_NOTE_REL in hostile_paths
+        hostile_path_returned = HOSTILE_NOTE_REL in hostile_paths
+        hostile_data_snippets = _hostile_data_snippets(hostile_response)
+        hostile_text_returned_as_data = any(HOSTILE_PROMPT_TEXT in item["snippet"] for item in hostile_data_snippets)
+        core_injection_label_present = _has_prompt_injection_label(hostile_response)
+        hostile_returned_as_data = hostile_path_returned and hostile_text_returned_as_data
+        known_limitations = []
+        if not core_injection_label_present:
+            known_limitations.append(
+                "Automated prompt-injection-risk labeling is a v0.3 item; v0.2 verifies hostile text is returned only as labeled retrieved data in this dogfood report."
+            )
         hostile_passed = (
             hostile_summary["status_code"] == 200
-            and hostile_returned
-            and hostile_summary["fail_closed_posture"] is True
+            and hostile_returned_as_data
+            and hostile_summary["unsafe_authority_flags_absent"] is True
             and hostile_summary["posture_verdict"] != "missing"
         )
         report["hostile_note"] = {
-            "prompt_injection_fixture_returned_as_data": hostile_returned,
+            "prompt_injection_fixture_returned_as_data": hostile_returned_as_data,
+            "hostile_path_returned": hostile_path_returned,
+            "hostile_text_returned_verbatim_as_snippet_data": hostile_text_returned_as_data,
+            "core_prompt_injection_label_present": core_injection_label_present,
+            "data_snippets": hostile_data_snippets,
+            "known_limitations": known_limitations,
             "runner_obeyed_fixture_instruction": False,
             **hostile_summary,
         }
@@ -814,9 +898,13 @@ def dogfood_librarian(options: DogfoodOptions, *, stdout: Any = sys.stdout) -> i
             _step(
                 "hostile-note",
                 hostile_passed,
-                "fixture returned as data; posture stayed fail-closed"
-                if hostile_passed
-                else "hostile-note proof failed",
+                (
+                    "fixture returned as data; posture stayed fail-closed"
+                    if hostile_passed and hostile_summary["fail_closed_posture"]
+                    else "fixture returned as data; posture stayed report-safe"
+                    if hostile_passed
+                    else "hostile-note proof failed"
+                ),
                 receipts=[hostile_summary],
             )
         )
