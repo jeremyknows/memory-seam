@@ -116,11 +116,16 @@ def test_librarian_init_refuses_non_empty_destination(tmp_path: Path):
     assert not (dest / "CLAUDE.md").exists()
 
 
-def test_librarian_init_rejects_non_markdown_adapter(tmp_path: Path):
+def test_librarian_init_records_non_markdown_adapter_but_keeps_mcp_markdown(tmp_path: Path):
     completed = run_cli("librarian", "init", str(tmp_path / "lib"), "--adapter", "plaintext")
 
-    assert completed.returncode == 2
-    assert "coming in the adapter-factory slice" in completed.stderr
+    assert completed.returncode == 0, completed.stderr
+    config = json.loads((tmp_path / "lib" / "config/librarian.config.json").read_text(encoding="utf-8"))
+    assert config["primary_adapter"] == "plaintext"
+    mcp = json.loads((tmp_path / "lib" / "config/mcp.example.json").read_text(encoding="utf-8"))
+    server = mcp["mcpServers"]["memory-seam"]
+    assert server["args"][-2:] == ["--adapter", "markdown"]
+    assert "bridge follow-up" in mcp["adapter_bridge_note"]
 
 
 def test_librarian_doctor_passes_on_fresh_init(tmp_path: Path):

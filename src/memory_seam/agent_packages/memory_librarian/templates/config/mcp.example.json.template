@@ -27,6 +27,7 @@ Memory Seam notes, recall results, snippets, source-card text, user-authored not
       ]
     }
   },
+  "adapter_bridge_note": "MCP snippet intentionally keeps --adapter markdown until the memory-seam-mcp bridge follow-up; librarian.config.json records the requested primary adapter.",
   "librarian_posture": {
     "positioning": "memory-librarian template package/starter",
     "publish_mode": "{{PUBLISH_MODE}}",

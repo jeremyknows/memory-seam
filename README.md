@@ -86,7 +86,7 @@ This proves the seam can answer a context request and a recall request through t
 
 ## Use Your Own Notes (2 minutes)
 
-After installing, point the CLI at any folder of markdown notes:
+After installing, point the CLI at any supported local source. Markdown is the default:
 
 ```bash
 memory-seam recall ./docs "runtime boundary" --n 3
@@ -115,6 +115,18 @@ memory-seam context ./docs/patterns --json
 
 The receipt proves the runtime authorized the request before the folder scan, the returned evidence is report-safe with root-relative paths, and the held surfaces stayed closed: no service startup, no Runtime Registry consumption, no raw fallback, and no write/custody/reindex behavior.
 
+Adapter alternates:
+
+```bash
+memory-seam recall ./notes-markdown "launch plan" --adapter markdown --n 1
+memory-seam recall ./notes-text "receipt" --adapter plaintext --n 1
+memory-seam recall ./notes-export "customer signal" --adapter jsonl --n 1
+memory-seam recall . "adapter factory" --adapter git-tree --n 1
+memory-seam recall ./notes.db "retrospective" --adapter sqlite --db-table notes --title-column title --body-column body --n 1
+```
+
+`sqlite` is for deliberately copied databases and requires explicit table/title/body mapping; it does not autodetect schema.
+
 Python alternative, using the same adapter/runtime shape:
 
 ```bash
@@ -122,7 +134,7 @@ python3 examples/my_notes_quickstart.py
 python3 examples/my_notes_quickstart.py ~/path/to/notes
 ```
 
-This is a reference path for local markdown folders; production backends arrive as adapters in v0.2.
+This is the reference path for local files and copied exports; production backends stay outside the core package and arrive through adapters.
 
 ## Build Your Own Provider
 
@@ -167,6 +179,7 @@ Provider protocols are deliberately small: implement health/context/recall direc
 | Authority | Static/demo identity verification, scope checks, deny-before-read paths | Trust query strings as authority or silently widen access |
 | Receipts | Metadata-only read receipts and runtime posture flags | Persist audit logs or expose raw/private source content |
 | Providers | Protocols, null provider, synthetic fixtures, adapter wrapper | Ship a production memory backend or call one by default |
+| Local adapters | Markdown, plaintext, JSONL/JSON export, Git current-tree, and explicitly mapped copied SQLite recall/context | Follow symlinks, read Git history, autodetect private app databases, start services, or mutate sources |
 | Policy/descriptors | Safe contracts for scoped source metadata and grants | Discover local sources or consume Runtime Registry state |
 | Writes | Explicit write-like route/payload denial | Write memory, custody records, delete, reindex, rollback, or purge |
 | Network | Installable Python package with local examples | Make runtime network calls from the core package |

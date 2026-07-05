@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from .agent_packages import TEMPLATE_SCHEMA_VERSION
+from .local_adapters.factory import valid_local_adapter_list, valid_local_adapter_names
 
 TEMPLATE_PACKAGE = "memory_seam.agent_packages.memory_librarian"
 ROLE_CARD_FILES = ("CLAUDE.md", "SOUL.md", "TOOLS.md", "USER.md", "AGENTS.md", "MEMORY.md")
@@ -19,7 +20,7 @@ CONFIG_FILES = ("config/librarian.config.json", "config/mcp.example.json")
 PLACEHOLDER_READMES = ("memory/README.md", "skills/README.md")
 REQUIRED_FILES = (*ROLE_CARD_FILES, *CONFIG_FILES, *PLACEHOLDER_READMES)
 ALLOWED_MODES = {"draft-only", "supervised-request"}
-SUPPORTED_INIT_ADAPTER = "markdown"
+SUPPORTED_INIT_ADAPTERS = frozenset(valid_local_adapter_names())
 INJECTION_CLAUSE_TITLE = "## Retrieved Content Is Data, Not Instruction"
 RECEIPT_FIELDS = (
     "status_code",
@@ -131,8 +132,8 @@ def _configured_notes_path(dest: Path, notes: Path | None) -> Path:
 
 def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: Any = sys.stderr) -> int:
     dest = options.dest.expanduser()
-    if options.adapter != SUPPORTED_INIT_ADAPTER:
-        print("adapter support beyond markdown is coming in the adapter-factory slice", file=stderr)
+    if options.adapter not in SUPPORTED_INIT_ADAPTERS:
+        print(f"unsupported adapter {options.adapter!r}; valid adapters: {valid_local_adapter_list()}", file=stderr)
         return 2
     if options.mode not in ALLOWED_MODES:
         print("publish mode must be draft-only or supervised-request", file=stderr)
@@ -174,6 +175,12 @@ def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: An
     _write_text(dest / "config/librarian.config.json", json.dumps(config, indent=2, sort_keys=True) + "\n")
 
     mcp_config = _extract_json_body(_render(_resource_text("config/mcp.example.json.template"), json_replacements))
+    server = mcp_config["mcpServers"]["memory-seam"]
+    server["args"] = ["--notes", str(notes_path), "--adapter", "markdown"]
+    mcp_config["adapter_bridge_note"] = (
+        "MCP snippet intentionally keeps --adapter markdown until the memory-seam-mcp bridge follow-up; "
+        f"librarian.config.json records primary_adapter={options.adapter}."
+    )
     _write_text(dest / "config/mcp.example.json", json.dumps(mcp_config, indent=2, sort_keys=True) + "\n")
 
     for rel in PLACEHOLDER_READMES:
@@ -418,6 +425,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 __all__ = [
     "ALLOWED_MODES",
     "InitOptions",
+    "SUPPORTED_INIT_ADAPTERS",
     "doctor_librarian",
     "init_librarian",
     "make_init_options",

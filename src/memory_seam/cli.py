@@ -2,7 +2,7 @@
 
 The rootless commands remain the original synthetic no-live smoke checks. When
 ``recall`` or ``context`` receives a local root positional argument, the CLI
-uses the packaged local markdown adapter through the default-off runtime.
+uses a packaged local adapter through the default-off runtime.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from urllib.parse import urlencode
 from . import _style
 from .adapters import AdapterMemorySeamProvider
 from .adapters import synthetic_safe_content_provider
-from .local_adapters.markdown import LocalMarkdownAdapter
+from .local_adapters.factory import build_local_adapter, valid_local_adapter_names
 from .providers import provider_handlers
 from .receipts import read_receipt_enabled
 from .router import route_request
@@ -26,6 +26,7 @@ from .runtime import LocalReadOnlyRuntime, ReadOnlyRuntimeConfig, RuntimeRequest
 
 CLI_STATUS = "minimal_no_live_synthetic_smoke_cli"
 LOCAL_MARKDOWN_PROVIDER_NAME = "local-markdown-cli"
+LOCAL_PROVIDER_NAME_PREFIX = "local"
 LOCAL_MARKDOWN_AGENT = "agent:memory-seam-cli"
 READ_RECEIPT_QUERY_VALUE = "metadata_only"
 CLI_HELD_SURFACES = (
@@ -107,14 +108,19 @@ def no_live_response(endpoint: str, *, include: str, mode: str, agent: str | Non
     return {**response, "body": body}
 
 
-def build_local_markdown_runtime(root: str | Path) -> LocalReadOnlyRuntime:
-    """Build the local markdown runtime used by the CLI front door."""
+def _local_provider_name(adapter: str) -> str:
+    return LOCAL_MARKDOWN_PROVIDER_NAME if adapter == "markdown" else f"{LOCAL_PROVIDER_NAME_PREFIX}-{adapter}-cli"
 
+
+def build_local_runtime(adapter: str, root: str | Path, **config: Any) -> LocalReadOnlyRuntime:
+    """Build the local adapter runtime used by the CLI front door."""
+
+    provider_name = _local_provider_name(adapter)
     return LocalReadOnlyRuntime(
-        config=ReadOnlyRuntimeConfig(enabled=True, provider_name=LOCAL_MARKDOWN_PROVIDER_NAME),
+        config=ReadOnlyRuntimeConfig(enabled=True, provider_name=provider_name),
         provider=AdapterMemorySeamProvider(
-            LocalMarkdownAdapter(root),
-            provider_name=LOCAL_MARKDOWN_PROVIDER_NAME,
+            build_local_adapter(adapter, root, **config),
+            provider_name=provider_name,
         ),
         identity_verifier=StaticIdentityVerifier(
             subject=LOCAL_MARKDOWN_AGENT,
@@ -123,14 +129,22 @@ def build_local_markdown_runtime(root: str | Path) -> LocalReadOnlyRuntime:
     )
 
 
-def local_markdown_response(
+def build_local_markdown_runtime(root: str | Path) -> LocalReadOnlyRuntime:
+    """Build the local markdown runtime used by the CLI front door."""
+
+    return build_local_runtime("markdown", root)
+
+
+def local_adapter_response(
     endpoint: str,
     *,
     root: str | Path,
+    adapter: str = "markdown",
     query: str = "",
     n: int = 5,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Route a local markdown request through the default-off runtime."""
+    """Route a local adapter request through the default-off runtime."""
 
     if endpoint == "context":
         target = "/context?" + urlencode(
@@ -152,8 +166,20 @@ def local_markdown_response(
             }
         )
     else:
-        raise ValueError(f"unsupported local markdown CLI endpoint: {endpoint}")
-    return build_local_markdown_runtime(root).handle(RuntimeRequest("GET", target))
+        raise ValueError(f"unsupported local adapter CLI endpoint: {endpoint}")
+    return build_local_runtime(adapter, root, **(config or {})).handle(RuntimeRequest("GET", target))
+
+
+def local_markdown_response(
+    endpoint: str,
+    *,
+    root: str | Path,
+    query: str = "",
+    n: int = 5,
+) -> dict[str, Any]:
+    """Route a local markdown request through the default-off runtime."""
+
+    return local_adapter_response(endpoint, root=root, adapter="markdown", query=query, n=n)
 
 
 def _json_safe(value: Any) -> Any:
@@ -233,11 +259,17 @@ def _print_scan_status(root: str | Path) -> None:
     sys.stdout.flush()
 
 
-def _print_human_local_markdown(response: dict[str, Any], *, root: str | Path, overwrite_scan_line: bool = False) -> None:
+def _print_human_local_response(
+    response: dict[str, Any],
+    *,
+    root: str | Path,
+    adapter: str,
+    overwrite_scan_line: bool = False,
+) -> None:
     body = dict(response.get("body") or {})
     items = list(body.get("items") or [])
     root_label = str(Path(root).expanduser().absolute())
-    ready = f"memory-seam v{_version()} · adapter=markdown · root={root_label} · {_scan_count(body)} files scanned"
+    ready = f"memory-seam v{_version()} · adapter={adapter} · root={root_label} · {_scan_count(body)} files scanned"
     if overwrite_scan_line:
         sys.stdout.write("\r" + _style.cyan(ready) + "\033[K\n")
     else:
@@ -256,18 +288,36 @@ def _print_human_local_markdown(response: dict[str, Any], *, root: str | Path, o
     print(_receipt_line(verdict, reason), _style.dim(f"safe_posture={_format_posture(posture)}"))
 
 
-def _fatal_adapter_message(root: str | Path, response: dict[str, Any]) -> str | None:
+def _fatal_adapter_message(root: str | Path, response: dict[str, Any], *, adapter: str) -> str | None:
     body = response.get("body") or {}
     reason = body.get("reason")
     if not isinstance(reason, str) or reason not in FATAL_ADAPTER_REASONS:
         return None
-    return f"memory-seam: cannot read markdown root {str(root)!r}: {FATAL_ADAPTER_REASONS[reason]} ({reason})"
+    return f"memory-seam: cannot read {adapter} root {str(root)!r}: {FATAL_ADAPTER_REASONS[reason]} ({reason})"
+
+
+def _add_local_adapter_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--adapter", default="markdown", choices=valid_local_adapter_names())
+    parser.add_argument("--db-table", help="sqlite table name for --adapter sqlite")
+    parser.add_argument("--title-column", help="sqlite title column for --adapter sqlite")
+    parser.add_argument("--body-column", help="sqlite body column for --adapter sqlite")
+
+
+def _adapter_config_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    config: dict[str, Any] = {}
+    if getattr(args, "adapter", None) == "sqlite":
+        config = {
+            "table": args.db_table,
+            "title_column": args.title_column,
+            "body_column": args.body_column,
+        }
+    return config
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="memory-seam",
-        description="Read local markdown through Memory Seam or run no-live synthetic smoke checks.",
+        description="Read local notes through Memory Seam or run no-live synthetic smoke checks.",
     )
     parser.add_argument("--version", action="store_true", help="show version and usage")
     subparsers = parser.add_subparsers(dest="endpoint")
@@ -275,20 +325,20 @@ def build_parser() -> argparse.ArgumentParser:
     health = subparsers.add_parser("health", help="emit synthetic provider health JSON")
     health.set_defaults(include="project", mode="startup", agent=None, query="", scope="wiki", n=5)
 
-    context = subparsers.add_parser("context", help="read local markdown context, or emit synthetic context JSON")
-    context.add_argument("root", nargs="?", help="local markdown root; omit for synthetic smoke JSON")
-    context.add_argument("--adapter", default="markdown", choices=("markdown",))
-    context.add_argument("--json", action="store_true", help="print the full local markdown envelope as JSON")
+    context = subparsers.add_parser("context", help="read local adapter context, or emit synthetic context JSON")
+    context.add_argument("root", nargs="?", help="local notes root/database; omit for synthetic smoke JSON")
+    _add_local_adapter_options(context)
+    context.add_argument("--json", action="store_true", help="print the full local adapter envelope as JSON")
     context.add_argument("--include", default="project", choices=("project", "memory", "project,memory"))
     context.add_argument("--mode", default="startup")
     context.add_argument("--agent", default="agent:memory-seam-cli")
     context.set_defaults(query="", scope="wiki", n=5)
 
-    recall = subparsers.add_parser("recall", help="read local markdown recall, or emit synthetic recall JSON")
-    recall.add_argument("root", nargs="?", help="local markdown root; omit for synthetic smoke JSON")
-    recall.add_argument("query_text", nargs="?", help="local markdown recall query")
-    recall.add_argument("--adapter", default="markdown", choices=("markdown",))
-    recall.add_argument("--json", action="store_true", help="print the full local markdown envelope as JSON")
+    recall = subparsers.add_parser("recall", help="read local adapter recall, or emit synthetic recall JSON")
+    recall.add_argument("root", nargs="?", help="local notes root/database; omit for synthetic smoke JSON")
+    recall.add_argument("query_text", nargs="?", help="local recall query")
+    _add_local_adapter_options(recall)
+    recall.add_argument("--json", action="store_true", help="print the full local adapter envelope as JSON")
     recall.add_argument("--query", default="runtime boundary")
     recall.add_argument("--scope", default="wiki", choices=("wiki", "diary", "context", "all"))
     recall.add_argument("--n", default=5, type=int)
@@ -302,7 +352,7 @@ def build_parser() -> argparse.ArgumentParser:
     librarian_init.add_argument("dest", help="empty destination directory for the librarian workspace")
     librarian_init.add_argument("--notes", help="configured notes root; defaults to <dest>/memory")
     librarian_init.add_argument("--client", default="none", choices=("claude-code", "claude-desktop", "none"))
-    librarian_init.add_argument("--adapter", default="markdown", help="source adapter; v0.2 init supports markdown")
+    librarian_init.add_argument("--adapter", default="markdown", choices=valid_local_adapter_names(), help="source adapter")
     librarian_init.add_argument("--mode", default="supervised-request", choices=("supervised-request", "draft-only"))
     librarian_init.add_argument("--agent-name", default="Memory Librarian")
     librarian_init.add_argument("--operator-name", default="Operator")
@@ -333,13 +383,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         show_scan_status = not args.json and _style.enabled()
         if show_scan_status:
             _print_scan_status(args.root)
-        response = local_markdown_response(
-            args.endpoint,
-            root=args.root,
-            query=getattr(args, "query_text", "") or "",
-            n=args.n,
-        )
-        fatal = _fatal_adapter_message(args.root, response)
+        try:
+            response = local_adapter_response(
+                args.endpoint,
+                root=args.root,
+                adapter=args.adapter,
+                query=getattr(args, "query_text", "") or "",
+                n=args.n,
+                config=_adapter_config_from_args(args),
+            )
+        except ValueError as exc:
+            if show_scan_status:
+                sys.stdout.write("\r\033[K")
+                sys.stdout.flush()
+            print(_style.red(f"memory-seam: {exc}"), file=sys.stderr)
+            return 2
+        fatal = _fatal_adapter_message(args.root, response, adapter=args.adapter)
         if fatal is not None:
             if show_scan_status:
                 sys.stdout.write("\r\033[K")
@@ -349,7 +408,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.json:
             print(json.dumps(_json_safe(response), indent=2, sort_keys=True))
         else:
-            _print_human_local_markdown(response, root=args.root, overwrite_scan_line=show_scan_status)
+            _print_human_local_response(
+                response,
+                root=args.root,
+                adapter=args.adapter,
+                overwrite_scan_line=show_scan_status,
+            )
         return 0 if int(response.get("status_code", 1)) < 400 else 1
 
     payload = no_live_response(
@@ -374,7 +438,9 @@ __all__ = [
     "CLI_STATUS",
     "LOCAL_MARKDOWN_PROVIDER_NAME",
     "build_local_markdown_runtime",
+    "build_local_runtime",
     "build_parser",
+    "local_adapter_response",
     "local_markdown_response",
     "main",
     "no_live_response",

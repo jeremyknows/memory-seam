@@ -118,6 +118,27 @@ def test_local_markdown_recall_json_full_envelope(tmp_path: Path):
     assert body["allowed_scopes"] == ["context", "wiki"]
 
 
+def test_local_plaintext_recall_happy_path(tmp_path: Path):
+    (tmp_path / "plain.txt").write_text("Plaintext receipts prove adapter factory routing.", encoding="utf-8")
+
+    completed = run_cli_completed(
+        "recall",
+        str(tmp_path),
+        "factory routing",
+        "--adapter",
+        "plaintext",
+        "--n",
+        "1",
+        check=True,
+    )
+
+    assert "memory-seam v0.1.0 · adapter=plaintext" in completed.stdout
+    assert "1. plain" in completed.stdout
+    assert "plain.txt" in completed.stdout
+    assert "adapter factory routing" in completed.stdout
+    assert completed.stderr == ""
+
+
 def test_style_helper_enables_only_for_supported_tty(monkeypatch):
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
     monkeypatch.delenv("NO_COLOR", raising=False)
@@ -196,7 +217,7 @@ def test_local_markdown_json_output_is_byte_identical_to_envelope_dump(monkeypat
             "allowed_scopes": frozenset({"wiki", "context"}),
         },
     }
-    monkeypatch.setattr(cli_module, "local_markdown_response", lambda *args, **kwargs: response)
+    monkeypatch.setattr(cli_module, "local_adapter_response", lambda *args, **kwargs: response)
 
     expected = json.dumps(_json_safe(response), indent=2, sort_keys=True)
     assert main(["recall", str(tmp_path), "receipt_verdict", "--json"]) == 0

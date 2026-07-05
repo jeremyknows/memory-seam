@@ -14,6 +14,16 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added the local adapter factory and CLI adapter selection
+  for `markdown`, `plaintext`, `jsonl`, `git-tree`, and explicitly mapped
+  copied `sqlite` sources.
+  - Surface: `memory_seam.local_adapters.factory`, `memory-seam recall/context
+    <root> --adapter <name>`, librarian init adapter recording, README
+    examples, and tests.
+  - Migration: existing CLI calls keep `markdown` as the default; SQLite CLI
+    calls must pass `--db-table`, `--title-column`, and `--body-column`.
+  - Rollback: revert the factory module, CLI adapter options, librarian
+    adapter-name validation, README examples, and related tests.
 - **Non-breaking** — Added `memory-seam librarian init` and
   `memory-seam librarian doctor` for creating and posture-checking the
   memory-librarian template package workspace.
