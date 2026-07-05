@@ -203,6 +203,15 @@ def test_public_hygiene_scan_scans_template_suffixes(tmp_path: Path):
     assert any("host_private_path" in hit for hit in hits)
 
 
+def test_public_hygiene_scan_covers_integrations_tree(tmp_path: Path):
+    private_path = "/" + "Users" + "/alice/project"
+    write_text(tmp_path, "integrations/claude-plugin/README.md", private_path)
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any("integrations/claude-plugin/README.md:1: host_private_path" in hit for hit in hits)
+
+
 def test_public_hygiene_scan_rejects_unapproved_template_placeholders(tmp_path: Path):
     bad_placeholder = "{" * 2 + "BAD_NAME" + "}" * 2
     write_text(tmp_path, "starter.template", f"operator {bad_placeholder}")

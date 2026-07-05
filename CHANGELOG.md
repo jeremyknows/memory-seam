@@ -14,6 +14,15 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added the Claude Code plugin shell for Memory Seam with
+  generated librarian skill copies, plugin-local MCP bridge config, sync script,
+  parity coverage, and install docs.
+  - Surface: `integrations/claude-plugin`, `scripts/sync_claude_plugin.py`,
+    README, changelog, source distribution contents, and tests.
+  - Migration: canonical skill changes must run `python3 scripts/sync_claude_plugin.py`
+    before release.
+  - Rollback: remove the plugin shell, sync script, README/changelog entry, and
+    parity tests.
 - **Non-breaking** — Added the memory-librarian packaged skills suite
   (`seam-ops`, `seam-recall`, `seam-filing`, and `seam-curation`) as canonical
   importlib resources copied into initialized workspaces.

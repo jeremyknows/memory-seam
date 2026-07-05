@@ -1,0 +1,10 @@
+{
+  "name": "memory-seam",
+  "description": "receipt-first memory boundary — recall over your own notes with receipts, via the librarian skills + MCP bridge",
+  "version": "0.1.0",
+  "author": {
+    "name": "Jeremy Knows"
+  },
+  "homepage": "https://github.com/jeremyknows/memory-seam",
+  "license": "Apache-2.0"
+}

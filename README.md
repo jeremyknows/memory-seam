@@ -36,6 +36,16 @@ Copy-paste template prompt for a human to give their agent:
 Install memory-seam (pip install "git+https://github.com/jeremyknows/memory-seam.git"), then use `memory-seam recall <notes-root> "<question>" --json` to answer my questions from my notes. Always check the receipt_verdict (`read_receipt.usefulness_shape.verdict`) and safe_posture (`service_started`, `runtime_registry_consumed`, `raw_fallback_used`, `write_custody_or_reindex`) before trusting the output.
 ```
 
+## Claude Code Plugin
+
+Memory Seam ships a Claude Code plugin shell at [`integrations/claude-plugin`](integrations/claude-plugin/README.md). Install it from a clone with:
+
+```bash
+claude --plugin-dir ./memory-seam/integrations/claude-plugin
+```
+
+The plugin exposes the canonical librarian skills as `/memory-seam:seam-recall`, `/memory-seam:seam-filing`, `/memory-seam:seam-curation`, and `/memory-seam:seam-ops`, paired with a local `memory-seam-mcp` bridge config.
+
 ## 60-Second Quickstart
 
 ```bash

@@ -50,6 +50,7 @@ packages = ["src/memory_seam"]
 include = [
   "/.github/workflows/tests.yml",
   "/CONTRIBUTING.md",
+  "/integrations",
   "/LICENSE",
   "/README.md",
   "/ROADMAP.md",
