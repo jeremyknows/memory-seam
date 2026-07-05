@@ -14,6 +14,16 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added
+  `memory_seam.local_adapters.plaintext.LocalPlainTextAdapter`, a read-only
+  local plain-text folder adapter with configurable extension allowlist,
+  null-byte binary skip accounting, scan caps, and certification tests.
+  - Surface: packaged adapter API and adapter test coverage.
+  - Migration: import `LocalPlainTextAdapter` from
+    `memory_seam.local_adapters.plaintext` for `.txt`, `.md`, `.rst`, and `.log`
+    folder recall.
+  - Rollback: remove the adapter module and its tests if the local adapter
+    campaign changes direction.
 - **Non-breaking** — Added `memory_seam.__version__` to the public API surface.
   - Surface: exported API.
   - Migration: none.
