@@ -17,7 +17,9 @@ from memory_seam.local_adapters.markdown import (
     _empty_summary,
     _clamp_recall_n,
     _query_terms,
+    _read_regular_file_no_follow,
     _safe_relative_path,
+    _scan_notice,
     _score,
     _snippet,
     _with_limit_note,
@@ -72,6 +74,8 @@ class LocalJsonlExportAdapter:
             return self._empty_result(root_status, limit_note=limit_note)
 
         terms = _query_terms(query)
+        if scope != "context" and not terms:
+            return self._empty_result("empty_query", limit_note=limit_note)
         matches: list[tuple[int, str, str, dict[str, Any]]] = []
         files_scanned = 0
         files_skipped = 0
@@ -104,22 +108,12 @@ class LocalJsonlExportAdapter:
                 files_skipped += 1
                 continue
 
-            try:
-                stat = path.stat(follow_symlinks=False)
-            except OSError:
-                files_skipped += 1
-                continue
-            if stat.st_size > MAX_FILE_BYTES:
-                files_skipped += 1
-                continue
-
-            try:
-                raw = path.read_bytes()
-            except PermissionError:
+            read_status, raw = _read_regular_file_no_follow(path)
+            if read_status == "permission_denied":
                 permission_denied = True
                 files_skipped += 1
                 continue
-            except OSError:
+            if read_status != "ok" or raw is None:
                 files_skipped += 1
                 continue
 
@@ -153,7 +147,7 @@ class LocalJsonlExportAdapter:
                     continue
 
                 records_indexed += 1
-                score, best_index = _score(title, body, terms)
+                score, best_index = _score(title, body, terms, match_all_if_empty=scope == "context")
                 if score <= 0:
                     continue
                 item = self._item(
@@ -165,7 +159,7 @@ class LocalJsonlExportAdapter:
                     score=score,
                     replacement_used=replacement_used,
                 )
-                matches.append((score, title.lower(), rel, item))
+                matches.append((score, title.casefold(), rel, item))
 
             if file_truncated:
                 files_with_record_cap += 1
@@ -194,6 +188,26 @@ class LocalJsonlExportAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        scan_notices: list[dict[str, str]] = []
+        if files_with_record_cap:
+            scan_notices.append(
+                _scan_notice(
+                    "record_cap_reached",
+                    "Local JSON export record cap reached",
+                    f"One or more JSON export files were capped at {MAX_RECORDS_PER_FILE} records; narrow the export for complete recall.",
+                )
+            )
+        if truncated:
+            scan_notices.append(
+                _scan_notice(
+                    "scan_file_cap_reached",
+                    "Local JSON export scan truncated",
+                    f"Scan stopped after {MAX_SCAN_FILES} JSON export files; narrow the folder or query for complete recall.",
+                )
+            )
+        if scan_notices:
+            summary["scan_notices"] = scan_notices
+            summary["scan_notice"] = scan_notices[0]
         if not matches and not truncated and not files_with_record_cap:
             summary["reason"] = "zero_match"
             self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
@@ -203,12 +217,7 @@ class LocalJsonlExportAdapter:
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2], match[3]["record_index"]))
         limit = max(0, int(n))
-        items = [item for _, _, _, item in matches[:limit]]
-        if files_with_record_cap:
-            items.append(self._record_cap_item(scope=scope, summary=summary))
-        if truncated:
-            items.append(self._scan_truncated_item(scope=scope, summary=summary))
-        return items
+        return [item for _, _, _, item in matches[:limit]]
 
     def _root_status(self) -> str | None:
         try:

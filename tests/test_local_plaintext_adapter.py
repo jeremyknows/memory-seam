@@ -4,6 +4,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import memory_seam.local_adapters.plaintext as plaintext_module
 from memory_seam import ADAPTER_PROTOCOL_VERSION
 from memory_seam.local_adapters.plaintext import (
     DEFAULT_PLAINTEXT_EXTENSIONS,
@@ -113,6 +114,27 @@ def test_mixed_folder_keeps_paths_safe_and_skips_hidden_symlink_large_and_binary
     assert adapter.last_scan_summary["binary_files_skipped"] == 1
 
 
+def test_toctou_swap_to_symlink_is_not_followed(monkeypatch, tmp_path: Path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("needle", encoding="utf-8")
+    outside = tmp_path.parent / "plaintext-race-outside.txt"
+    outside.write_text("needle", encoding="utf-8")
+    original = plaintext_module._safe_relative_path
+    swapped = {"done": False}
+
+    def swap_before_open(path: Path, root: Path) -> str | None:
+        rel = original(path, root)
+        if path == victim and not swapped["done"]:
+            swapped["done"] = True
+            victim.unlink()
+            victim.symlink_to(outside)
+        return rel
+
+    monkeypatch.setattr(plaintext_module, "_safe_relative_path", swap_before_open)
+
+    assert LocalPlainTextAdapter(tmp_path).recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+
+
 def test_invalid_utf8_uses_replacement_and_marks_item_degraded(tmp_path: Path):
     (tmp_path / "bad.txt").write_bytes(b"needle \xff recall")
 
@@ -145,7 +167,8 @@ def test_scan_cap_adds_truncation_item(tmp_path: Path):
     adapter = LocalPlainTextAdapter(tmp_path)
     items = adapter.recall_items("needle", scope="wiki", token_subject=None, n=1)
 
-    assert items[-1]["title"] == "Local plain-text scan truncated"
-    assert items[-1]["truncated"] is True
+    assert len(items) == 1
+    assert items[0]["title"] == "0000"
     assert adapter.last_scan_summary["files_scanned"] == MAX_SCAN_FILES
     assert adapter.last_scan_summary["truncated"] is True
+    assert adapter.last_scan_summary["scan_notice"]["title"] == "Local plain-text scan truncated"

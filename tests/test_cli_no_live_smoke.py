@@ -139,6 +139,24 @@ def test_local_plaintext_recall_happy_path(tmp_path: Path):
     assert completed.stderr == ""
 
 
+def test_human_cli_sanitizes_control_sequences_but_json_keeps_raw_values(tmp_path: Path):
+    title = "\x1b]52;c;AAAA\x07Launch\u202e Notes"
+    snippet = "needle \x1b[31mred\x1b[0m\r\nnext"
+    (tmp_path / "hostile.md").write_text(f"# {title}\n\n{snippet}", encoding="utf-8")
+
+    human = run_cli_completed("recall", str(tmp_path), "needle", check=True)
+    assert "\x1b]52" not in human.stdout
+    assert "\x1b[31m" not in human.stdout
+    assert "\u202e" not in human.stdout
+    assert "Launch Notes" in human.stdout
+    assert "needle red next" in human.stdout
+
+    raw_json = run_cli_completed("recall", str(tmp_path), "needle", "--json", check=True)
+    payload = json.loads(raw_json.stdout)
+    assert payload["body"]["items"][0]["title"] == title
+    assert "\x1b[31m" in payload["body"]["items"][0]["snippet"]
+
+
 def test_style_helper_enables_only_for_supported_tty(monkeypatch):
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
     monkeypatch.delenv("NO_COLOR", raising=False)

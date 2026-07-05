@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import memory_seam.local_adapters.git_tree as git_tree_module
 from memory_seam import (
     ADAPTER_PROTOCOL_VERSION,
     AdapterMemorySeamProvider,
@@ -154,6 +155,29 @@ def test_tracked_symlink_is_not_followed(tmp_path: Path):
     assert [item["path"] for item in items] == ["visible.md"]
 
 
+def test_toctou_swap_to_symlink_is_not_followed(monkeypatch, tmp_path: Path):
+    repo = _git_repo(tmp_path / "repo")
+    victim = repo / "victim.md"
+    victim.write_text("# Victim\n\nneedle", encoding="utf-8")
+    outside = tmp_path / "git-race-outside.md"
+    outside.write_text("# Outside\n\nneedle", encoding="utf-8")
+    _git(repo, "add", "victim.md")
+    original = git_tree_module._safe_git_relative_path
+    swapped = {"done": False}
+
+    def swap_before_open(value: str) -> str | None:
+        rel = original(value)
+        if value == "victim.md" and not swapped["done"]:
+            swapped["done"] = True
+            victim.unlink()
+            victim.symlink_to(outside)
+        return rel
+
+    monkeypatch.setattr(git_tree_module, "_safe_git_relative_path", swap_before_open)
+
+    assert LocalGitTreeAdapter(repo).recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+
+
 def test_runtime_envelope_carries_structured_non_repo_reason(tmp_path: Path):
     runtime = LocalReadOnlyRuntime(
         config=ReadOnlyRuntimeConfig(enabled=True, provider_name="local-git-tree-test"),
@@ -182,11 +206,12 @@ def test_scan_cap_adds_truncation_item(tmp_path: Path):
     adapter = LocalGitTreeAdapter(repo)
     items = adapter.recall_items("needle", scope="wiki", token_subject=None, n=1)
 
-    assert items[-1]["title"] == "Local Git current-tree scan truncated"
-    assert items[-1]["truncated"] is True
-    assert "Scan stopped after" in items[-1]["snippet"]
+    assert len(items) == 1
+    assert items[0]["title"] == "0000"
     assert adapter.last_scan_summary["files_scanned"] == MAX_SCAN_FILES
     assert adapter.last_scan_summary["truncated"] is True
+    assert adapter.last_scan_summary["scan_notice"]["title"] == "Local Git current-tree scan truncated"
+    assert "Scan stopped after" in adapter.last_scan_summary["scan_notice"]["message"]
 
 
 def test_submodule_gitlink_is_skipped_when_git_allows_file_protocol(tmp_path: Path):

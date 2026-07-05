@@ -54,6 +54,7 @@
           "truncated": "<bool>"
         }
       ],
+      "live_backend_called": "<bool>",
       "mode": "<str>",
       "partial": "<bool>",
       "provider": "<str>",
@@ -346,6 +347,7 @@
       "limits": {
         "max_n": "<int>"
       },
+      "live_backend_called": "<bool>",
       "n": "<int>",
       "partial": "<bool>",
       "provider": "<str>",

@@ -8,6 +8,7 @@ fall back to raw transcripts.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Iterable, Protocol, runtime_checkable
 
 from .contracts import CONTRACT_STATUS, MAX_RECALL_N, MAX_QUERY_CHARS
@@ -23,6 +24,13 @@ SCAN_TRUNCATED_ITEM_REASONS = {
     "scan_file_cap_reached",
     "record_cap_reached",
     "row_cap_reached",
+}
+LOCAL_READ_ADAPTER_NAMES = {
+    "local-markdown-folder",
+    "local-plain-text-folder",
+    "local-jsonl-export",
+    "local-git-current-tree",
+    "local-sqlite-notes",
 }
 
 FORBIDDEN_SOURCE_CARD_FRAGMENTS = (
@@ -114,13 +122,33 @@ def rank_synthetic_recall_items(
     pin retrieval quality without depending on gbrain or live indexes.
     """
 
-    terms = tuple(term for term in query.lower().strip()[:MAX_QUERY_CHARS].split() if term)
+    terms = tuple(
+        term.casefold()
+        for term in re.findall(r"[\w'-]+", query[:MAX_QUERY_CHARS], flags=re.UNICODE)
+        if term.strip("_'-")
+    )
+    if not terms:
+        return {
+            "schema": SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION,
+            "query_terms": [],
+            "items": [],
+            "item_count": 0,
+            "degraded": False,
+            "degraded_reasons": [],
+            "raw_fallback_used": False,
+            "read_backend_called": False,
+            "live_backend_called": False,
+            "service_started": False,
+            "runtime_registry_consumed": False,
+            "write_custody_or_reindex": False,
+            "recall_diagnostics": {"zero_reason": "empty_query"},
+        }
     ranked: list[dict[str, Any]] = []
     for position, item in enumerate(items):
         candidate = dict(item)
-        haystack = f"{candidate.get('title', '')} {candidate.get('snippet', '')}".lower()
+        haystack = f"{candidate.get('title', '')} {candidate.get('snippet', '')}".casefold()
         term_hits = sum(1 for term in terms if term in haystack)
-        exact_title = bool(terms) and all(term in str(candidate.get("title", "")).lower() for term in terms)
+        exact_title = bool(terms) and all(term in str(candidate.get("title", "")).casefold() for term in terms)
         score = (term_hits * 10) + (5 if exact_title else 0)
         if score <= 0 and terms:
             continue
@@ -152,6 +180,7 @@ def rank_synthetic_recall_items(
         "degraded_reasons": [],
         "raw_fallback_used": False,
         "read_backend_called": False,
+        "live_backend_called": False,
         "service_started": False,
         "runtime_registry_consumed": False,
         "write_custody_or_reindex": False,
@@ -453,6 +482,7 @@ class AdapterMemorySeamProvider:
     def _envelope(self, *, endpoint: str, items: list[dict[str, Any]], timeout_ms: int, **extra: Any) -> dict[str, Any]:
         adapter_metadata = self._adapter_metadata()
         degraded_reasons = _envelope_degraded_reasons(items, adapter_metadata)
+        read_backend_called = self.adapter.adapter_name in LOCAL_READ_ADAPTER_NAMES and bool(items)
         body = {
             "endpoint": endpoint,
             "provider": self.provider_name,
@@ -467,7 +497,8 @@ class AdapterMemorySeamProvider:
             "degraded_reasons": degraded_reasons,
             "backend_latency_ms": 0,
             "timeout_ms": timeout_ms,
-            "read_backend_called": False,
+            "read_backend_called": read_backend_called,
+            "live_backend_called": False,
             "service_started": False,
             "runtime_registry_consumed": False,
             "raw_fallback_used": False,
@@ -528,6 +559,8 @@ def _envelope_degraded_reasons(items: list[dict[str, Any]], adapter_metadata: di
     summary = adapter_metadata.get("adapter_scan_summary")
     if isinstance(summary, dict) and bool(summary.get("truncated")):
         reasons.append("scan_truncated")
+    if isinstance(summary, dict) and int(summary.get("files_with_record_cap") or 0) > 0:
+        reasons.append("scan_truncated")
     for item in items:
         item_reasons = item.get("degraded_reasons") or []
         if "utf8_replacement" in item_reasons:
@@ -586,6 +619,8 @@ def _zero_item_suggestion(
 ) -> str:
     if zero_reason == "zero_match":
         return f"zero-match: scanned {files_scanned} files, none matched {query!r}"
+    if zero_reason == "empty_query":
+        return "empty-query: provide at least one letter or number to recall"
     if zero_reason == "zero_markdown_files":
         if files_scanned == 0 and files_skipped:
             return "wrong adapter? try --adapter plaintext"

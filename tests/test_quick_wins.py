@@ -119,6 +119,9 @@ def test_receipt_summary_shape_and_hold_triggers(tmp_path: Path):
 
     body = local_adapter_response("recall", root=tmp_path, query="needle", n=5)["body"]
 
+    assert body["read_backend_called"] is True
+    assert body["live_backend_called"] is False
+    assert body["read_receipt"]["read_backend_called"] is True
     assert body["receipt_summary"] == {
         "verdict": "useful",
         "reason_code": "safe_context_sufficient",
@@ -141,14 +144,43 @@ def test_receipt_summary_shape_and_hold_triggers(tmp_path: Path):
         "posture_verdict": "hold",
         "blocking_fields": ["service_started"],
     }
-    assert no_live_response("context", include="project", mode="startup", agent=None, query="", scope="wiki", n=5)[
-        "body"
-    ]["receipt_summary"] == {
-        "verdict": "missing",
-        "reason_code": "receipt_missing",
-        "posture_verdict": "hold",
-        "blocking_fields": [],
-    }
+    assert "receipt_summary" not in no_live_response(
+        "context",
+        include="project",
+        mode="startup",
+        agent=None,
+        query="",
+        scope="wiki",
+        n=5,
+    )["body"]
+
+
+def test_receipt_hygiene_scan_reports_actual_private_path_and_token_hits(tmp_path: Path):
+    token = "sk-" + ("A" * 16)
+    private_path = "/" + "Users" + "/example/.env"
+    (tmp_path / "notes.md").write_text(
+        f"# Hygiene\n\nneedle {private_path} {token}",
+        encoding="utf-8",
+    )
+
+    safety = local_adapter_response("recall", root=tmp_path, query="needle", n=5)["body"]["read_receipt"][
+        "safety_shape"
+    ]
+
+    assert safety["hygiene_scan"] == "fail"
+    assert safety["private_path_hits"] == 1
+    assert safety["tokenish_hits"] == 1
+
+
+def test_empty_query_diagnostic_flows_to_envelope_without_browse_all(tmp_path: Path):
+    (tmp_path / "notes.md").write_text("# Notes\n\ncontent exists", encoding="utf-8")
+
+    body = local_adapter_response("recall", root=tmp_path, query="!!!", n=5)["body"]
+
+    assert body["items"] == []
+    assert body["reason"] == "empty_query"
+    assert body["recall_diagnostics"]["zero_reason"] == "empty_query"
+    assert body["adapter_scan_summary"]["files_scanned"] == 0
 
 
 def test_recall_n_clamps_to_one_through_twenty_for_each_local_adapter_class(tmp_path: Path):

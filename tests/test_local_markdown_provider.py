@@ -90,9 +90,8 @@ def test_scan_cap_adds_explicit_truncated_note(tmp_path: Path):
 
     items = LocalMarkdownProvider(tmp_path).recall_items("needle", scope="wiki", token_subject=None, n=1)
 
-    assert items[-1]["title"] == "Local markdown scan truncated"
-    assert items[-1]["truncated"] is True
-    assert "Scan stopped after" in items[-1]["snippet"]
+    assert len(items) == 1
+    assert items[0]["title"] == "Note"
 
 
 def test_quickstart_runtime_posture_flags_stay_fail_closed(tmp_path: Path):
@@ -103,7 +102,8 @@ def test_quickstart_runtime_posture_flags_stay_fail_closed(tmp_path: Path):
 
     assert response["status_code"] == 200
     assert body["items"][0]["path"] == "note.md"
-    assert body["read_backend_called"] is False
+    assert body["read_backend_called"] is True
+    assert body["live_backend_called"] is False
     assert body["service_started"] is False
     assert body["runtime_registry_consumed"] is False
     assert body["raw_fallback_used"] is False

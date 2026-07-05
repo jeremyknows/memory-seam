@@ -94,6 +94,7 @@ def test_schema_snapshots_pin_runtime_and_read_receipt_shapes():
         assert body["read_receipt"]["audit_shape"]["schema"] == "<str>"
         assert body["read_receipt"]["rollback_shape"]["cache_purge_required"] == "<bool>"
         assert body["read_backend_called"] == "<bool>"
+        assert body["live_backend_called"] == "<bool>"
         assert body["service_started"] == "<bool>"
         assert body["runtime_registry_consumed"] == "<bool>"
         assert body["write_custody_or_reindex"] == "<bool>"

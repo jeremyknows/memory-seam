@@ -36,6 +36,8 @@ Pinned runtime/read boundaries include:
 - audit and rollback receipt sub-shapes
 - `read_backend_called`, `service_started`, `runtime_registry_consumed`, and
   `write_custody_or_reindex` posture flags
+- `live_backend_called` as the no-live posture flag; `read_backend_called`
+  remains the local adapter/read-receipt evidence flag for returned items
 - synthetic context/recall item field structure
 
 ## Versioning contract

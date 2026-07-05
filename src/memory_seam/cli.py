@@ -16,6 +16,7 @@ from typing import Any, Sequence
 from urllib.parse import urlencode
 
 from . import _style
+from ._sanitize import sanitize_display
 from .adapters import AdapterMemorySeamProvider
 from .adapters import synthetic_safe_content_provider
 from .local_adapters.factory import build_local_adapter, valid_local_adapter_names
@@ -76,13 +77,15 @@ def no_live_response(endpoint: str, *, include: str, mode: str, agent: str | Non
     if endpoint == "health":
         target = "/health"
     elif endpoint == "context":
-        target = f"/context?include={include}&mode={mode}"
+        params = {"include": include, "mode": mode, "read_receipt": READ_RECEIPT_QUERY_VALUE}
         if agent:
-            target += f"&agent={agent}"
+            params["agent"] = agent
+        target = "/context?" + urlencode(params)
     elif endpoint == "recall":
-        target = f"/recall?query={query}&scope={scope}&n={n}"
+        params = {"query": query, "scope": scope, "n": n, "read_receipt": READ_RECEIPT_QUERY_VALUE}
         if agent:
-            target += f"&agent={agent}"
+            params["agent"] = agent
+        target = "/recall?" + urlencode(params)
     else:  # Defensive: argparse prevents this branch for CLI calls.
         raise ValueError(f"unsupported no-live CLI endpoint: {endpoint}")
 
@@ -195,6 +198,7 @@ def _json_safe(value: Any) -> Any:
 def _safe_posture(body: dict[str, Any]) -> dict[str, bool]:
     return {
         "read_backend_called": bool(body.get("read_backend_called")),
+        "live_backend_called": bool(body.get("live_backend_called")),
         "service_started": bool(body.get("service_started")),
         "runtime_registry_consumed": bool(body.get("runtime_registry_consumed")),
         "raw_fallback_used": bool(body.get("raw_fallback_used")),
@@ -232,7 +236,7 @@ def _scan_count(body: dict[str, Any]) -> int:
 
 def _with_receipt_summary(response: dict[str, Any]) -> dict[str, Any]:
     body = dict(response.get("body") or {})
-    if body.get("endpoint") in {"context", "recall"}:
+    if body.get("endpoint") in {"context", "recall"} and isinstance(body.get("read_receipt"), dict):
         body["receipt_summary"] = build_receipt_summary(body)
     return {**response, "body": body}
 
@@ -307,7 +311,7 @@ def _banner() -> str:
 
 
 def _scan_status_line(root: str | Path, files_scanned: int = 0) -> str:
-    root_label = str(Path(root).expanduser().absolute())
+    root_label = sanitize_display(Path(root).expanduser().absolute())
     return f"memory-seam: scanning {root_label} … {files_scanned} files"
 
 
@@ -327,7 +331,7 @@ def _print_human_local_response(
 ) -> None:
     body = dict(response.get("body") or {})
     items = list(body.get("items") or [])
-    root_label = str(Path(root).expanduser().absolute())
+    root_label = sanitize_display(Path(root).expanduser().absolute())
     ready = f"memory-seam v{_version()} · adapter={adapter} · root={root_label} · {_scan_count(body)} files scanned"
     if overwrite_scan_line:
         sys.stdout.write("\r" + _style.cyan(ready) + "\033[K\n")
@@ -339,9 +343,9 @@ def _print_human_local_response(
     if not items:
         print(_empty_result_line(body, adapter=adapter))
     for index, item in enumerate(items, start=1):
-        title = str(item.get("title") or "(untitled)")
-        path = str(item.get("path") or ".")
-        snippet = " ".join(str(item.get("snippet") or "").split())
+        title = sanitize_display(item.get("title") or "(untitled)")
+        path = sanitize_display(item.get("path") or ".")
+        snippet = sanitize_display(item.get("snippet") or "")
         print(f"{index}. {_style.bold(title)}")
         print(f"   {_style.dim(_style.cyan(path))}")
         if snippet:
@@ -355,7 +359,7 @@ def _fatal_adapter_message(root: str | Path, response: dict[str, Any], *, adapte
     reason = body.get("reason")
     if not isinstance(reason, str) or reason not in FATAL_ADAPTER_REASONS:
         return None
-    return f"memory-seam: cannot read {adapter} root {str(root)!r}: {FATAL_ADAPTER_REASONS[reason]} ({reason})"
+    return f"memory-seam: cannot read {adapter} root {sanitize_display(str(root))!r}: {FATAL_ADAPTER_REASONS[reason]} ({reason})"
 
 
 def _add_local_adapter_options(parser: argparse.ArgumentParser) -> None:
@@ -466,7 +470,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if show_scan_status:
                 sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
-            print(_style.red(f"memory-seam: {exc}"), file=sys.stderr)
+            print(_style.red(f"memory-seam: {sanitize_display(exc)}"), file=sys.stderr)
             return 2
         fatal = _fatal_adapter_message(args.root, response, adapter=args.adapter)
         if fatal is not None:

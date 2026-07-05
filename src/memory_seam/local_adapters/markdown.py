@@ -8,6 +8,7 @@ import hashlib
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat as stat_module
 from typing import Any
 
 from memory_seam.adapters import ADAPTER_PROTOCOL_VERSION
@@ -20,7 +21,7 @@ MAX_SNIPPET_CHARS = 200
 
 
 def _query_terms(query: str) -> tuple[str, ...]:
-    return tuple(term.lower() for term in re.findall(r"[A-Za-z0-9_'-]+", query) if term.strip())
+    return tuple(term.casefold() for term in re.findall(r"[\w'-]+", query, flags=re.UNICODE) if term.strip("_'-"))
 
 
 def _title_for(path: Path, content: str) -> str:
@@ -44,11 +45,17 @@ def _safe_relative_path(path: Path, root: Path) -> str | None:
     return rel
 
 
-def _score(title: str, content: str, terms: tuple[str, ...]) -> tuple[int, int | None]:
+def _score(
+    title: str,
+    content: str,
+    terms: tuple[str, ...],
+    *,
+    match_all_if_empty: bool = False,
+) -> tuple[int, int | None]:
     if not terms:
-        return 1, 0
-    title_lower = title.lower()
-    content_lower = content.lower()
+        return (1, 0) if match_all_if_empty else (0, None)
+    title_lower = title.casefold()
+    content_lower = content.casefold()
     score = 0
     best_index: int | None = None
     for term in terms:
@@ -67,7 +74,7 @@ def _snippet(content: str, terms: tuple[str, ...], fallback_index: int | None) -
     compact = " ".join(content.split())
     if not compact:
         return ""
-    compact_lower = compact.lower()
+    compact_lower = compact.casefold()
     index = None
     for term in terms:
         candidate = compact_lower.find(term)
@@ -112,6 +119,47 @@ def _with_limit_note(summary: dict[str, Any], limit_note: dict[str, Any] | None)
     return {**summary, **limit_note}
 
 
+def _read_regular_file_no_follow(path: Path, *, max_bytes: int = MAX_FILE_BYTES) -> tuple[str, bytes | None]:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd: int | None = None
+    try:
+        fd = os.open(path, flags)
+        stat = os.fstat(fd)
+        if not stat_module.S_ISREG(stat.st_mode):
+            return "not_regular", None
+        if stat.st_size > max_bytes:
+            return "too_large", None
+        return "ok", _read_fd(fd, stat.st_size)
+    except PermissionError:
+        return "permission_denied", None
+    except OSError:
+        return "unavailable", None
+    finally:
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+
+def _read_fd(fd: int, size: int) -> bytes:
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining > 0:
+        chunk = os.read(fd, min(remaining, 64 * 1024))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _scan_notice(code: str, title: str, message: str) -> dict[str, str]:
+    return {"code": code, "title": title, "message": message}
+
+
 @dataclass(frozen=True)
 class LocalMarkdownAdapter:
     """Structural SourceAdapter for a local folder of markdown files.
@@ -152,6 +200,8 @@ class LocalMarkdownAdapter:
             return self._empty_result(root_status, limit_note=limit_note)
 
         terms = _query_terms(query)
+        if scope != "context" and not terms:
+            return self._empty_result("empty_query", limit_note=limit_note)
         matches: list[tuple[int, str, dict[str, Any]]] = []
         files_scanned = 0
         files_skipped = 0
@@ -180,22 +230,12 @@ class LocalMarkdownAdapter:
                 files_skipped += 1
                 continue
 
-            try:
-                stat = path.stat(follow_symlinks=False)
-            except OSError:
-                files_skipped += 1
-                continue
-            if stat.st_size > MAX_FILE_BYTES:
-                files_skipped += 1
-                continue
-
-            try:
-                raw = path.read_bytes()
-            except PermissionError:
+            read_status, raw = _read_regular_file_no_follow(path)
+            if read_status == "permission_denied":
                 permission_denied = True
                 files_skipped += 1
                 continue
-            except OSError:
+            if read_status != "ok" or raw is None:
                 files_skipped += 1
                 continue
 
@@ -207,7 +247,7 @@ class LocalMarkdownAdapter:
                 replacement_used = True
 
             title = _title_for(path, content)
-            score, best_index = _score(title, content, terms)
+            score, best_index = _score(title, content, terms, match_all_if_empty=scope == "context")
             if score <= 0:
                 continue
             item = self._item(
@@ -218,7 +258,7 @@ class LocalMarkdownAdapter:
                 score=score,
                 replacement_used=replacement_used,
             )
-            matches.append((score, title.lower(), item))
+            matches.append((score, title.casefold(), item))
 
         if markdown_seen == 0:
             reason = "permission_denied" if permission_denied else "zero_markdown_files"
@@ -236,6 +276,12 @@ class LocalMarkdownAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        if truncated:
+            summary["scan_notice"] = _scan_notice(
+                "scan_file_cap_reached",
+                "Local markdown scan truncated",
+                f"Scan stopped after {MAX_SCAN_FILES} markdown files; narrow the folder or query for complete recall.",
+            )
         if not matches and not truncated:
             summary["reason"] = "zero_match"
             self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
@@ -245,10 +291,7 @@ class LocalMarkdownAdapter:
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]["path"]))
         limit = max(0, int(n))
-        items = [item for _, _, item in matches[:limit]]
-        if truncated:
-            items.append(self._truncated_item(scope=scope, summary=summary))
-        return items
+        return [item for _, _, item in matches[:limit]]
 
     def _root_status(self) -> str | None:
         try:

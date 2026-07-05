@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+import memory_seam.local_adapters.jsonl_export as jsonl_module
 from memory_seam import ADAPTER_PROTOCOL_VERSION
 from memory_seam.local_adapters.jsonl_export import (
     LocalJsonlExportAdapter,
@@ -148,6 +149,27 @@ def test_mixed_dirs_keep_paths_safe_and_skip_hidden_symlink_and_non_json(tmp_pat
     assert str(tmp_path) not in repr(items[0])
 
 
+def test_toctou_swap_to_symlink_is_not_followed(monkeypatch, tmp_path: Path):
+    victim = tmp_path / "victim.jsonl"
+    _write_jsonl(victim, [{"title": "Victim", "body": "needle"}])
+    outside = tmp_path.parent / "jsonl-race-outside.jsonl"
+    _write_jsonl(outside, [{"title": "Outside", "body": "needle"}])
+    original = jsonl_module._safe_relative_path
+    swapped = {"done": False}
+
+    def swap_before_open(path: Path, root: Path) -> str | None:
+        rel = original(path, root)
+        if path == victim and not swapped["done"]:
+            swapped["done"] = True
+            victim.unlink()
+            victim.symlink_to(outside)
+        return rel
+
+    monkeypatch.setattr(jsonl_module, "_safe_relative_path", swap_before_open)
+
+    assert LocalJsonlExportAdapter(tmp_path).recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+
+
 def test_record_cap_per_file_adds_truncation_note(tmp_path: Path):
     rows = [{"title": f"Row {index}", "body": "needle"} for index in range(MAX_RECORDS_PER_FILE + 1)]
     _write_jsonl(tmp_path / "large.jsonl", rows)
@@ -155,11 +177,11 @@ def test_record_cap_per_file_adds_truncation_note(tmp_path: Path):
     adapter = LocalJsonlExportAdapter(tmp_path)
     items = adapter.recall_items("needle", scope="wiki", token_subject=None, n=1)
 
+    assert len(items) == 1
     assert items[0]["id"] == "local-jsonl:large.jsonl#0"
-    assert items[-1]["title"] == "Local JSON export record cap reached"
-    assert items[-1]["truncated"] is True
     assert adapter.last_scan_summary["files_with_record_cap"] == 1
     assert adapter.last_scan_summary["records_indexed"] == MAX_RECORDS_PER_FILE
+    assert adapter.last_scan_summary["scan_notice"]["title"] == "Local JSON export record cap reached"
 
 
 def test_empty_folder_returns_friendly_reason(tmp_path: Path):

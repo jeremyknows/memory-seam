@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 READ_RECEIPT_VERSION = "memory_seam_read_receipt_v0"
@@ -40,7 +41,7 @@ READ_RECEIPT_BACKEND_ERROR_REASONS = {
     "source_read_error",
 }
 SAFE_POSTURE_FIELDS = (
-    "read_backend_called",
+    "live_backend_called",
     "service_started",
     "runtime_registry_consumed",
     "raw_fallback_used",
@@ -153,6 +154,34 @@ def _collect_redaction_labels(items: list[dict[str, Any]]) -> list[str]:
             if label not in labels:
                 labels.append(str(label))
     return labels
+
+
+_PRIVATE_PATH_RE = re.compile(r"(?i)(?:/users/|\\\\users\\\\|/private/var/|/var/folders/|(?:^|[/\\])\.env(?:$|[/\\]))")
+_TOKENISH_RE = re.compile(
+    r"(?i)(?:\bsk-[a-z0-9_-]{10,}|\bgh[opsru]_[a-z0-9_]{10,}|\bxox[baprs]-[a-z0-9-]{10,}|BEGIN [A-Z ]*PRIVATE KEY)"
+)
+_CREDENTIAL_REF_RE = re.compile(r"(?i)\b(?:api[_-]?key|access[_-]?token|secret|password|credential)\b")
+_RAW_TRANSCRIPT_RE = re.compile(r"(?i)\b(?:raw_transcript|session\.jsonl|transcript\.jsonl)\b")
+_RAW_PLATFORM_ID_RE = re.compile(r"\b(?:U[A-Z0-9]{8,}|C[A-Z0-9]{8,}|T[A-Z0-9]{8,})\b")
+
+
+def _hygiene_scan(items: list[dict[str, Any]]) -> dict[str, int | str]:
+    values: list[str] = []
+    for item in items:
+        for field in ("title", "snippet", "path"):
+            value = item.get(field)
+            if value is not None:
+                values.append(str(value))
+    rendered = "\n".join(values)
+    counts = {
+        "raw_platform_id_hits": len(_RAW_PLATFORM_ID_RE.findall(rendered)),
+        "private_path_hits": len(_PRIVATE_PATH_RE.findall(rendered)),
+        "tokenish_hits": len(_TOKENISH_RE.findall(rendered)),
+        "credential_ref_hits": len(_CREDENTIAL_REF_RE.findall(rendered)),
+        "raw_transcript_hits": len(_RAW_TRANSCRIPT_RE.findall(rendered)),
+    }
+    counts["hygiene_scan"] = "pass" if all(value == 0 for value in counts.values()) else "fail"
+    return counts
 
 
 def _hash_values(values: list[str]) -> list[str]:
@@ -544,6 +573,7 @@ def build_read_receipt(
     elif any(reason in READ_RECEIPT_BACKEND_ERROR_REASONS for reason in degraded_reasons):
         deny_stage = "after_backend_error"
     redaction_labels = _collect_redaction_labels(items)
+    hygiene_scan = _hygiene_scan(items)
     label_counts = _label_counts(items, degraded_reasons, redaction_labels)
     registry_id = _opaque_receipt_id("registry", endpoint, source_family, subject_label)
     grant_id = _opaque_receipt_id("grant", subject_label, source_family)
@@ -588,12 +618,7 @@ def build_read_receipt(
             "timeout_ms": timeout_ms,
         },
         "safety_shape": {
-            "hygiene_scan": "pass",
-            "raw_platform_id_hits": 0,
-            "private_path_hits": 0,
-            "tokenish_hits": 0,
-            "credential_ref_hits": 0,
-            "raw_transcript_hits": 0,
+            **hygiene_scan,
             "redaction_labels": redaction_labels,
         },
         "usefulness_shape": usefulness_shape,

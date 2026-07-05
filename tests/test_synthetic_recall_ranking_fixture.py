@@ -85,3 +85,16 @@ def test_synthetic_recall_ranking_reports_degraded_empty_result_without_live_fal
     assert ranked["degraded_reasons"] == []
     assert ranked["raw_fallback_used"] is False
     assert ranked["read_backend_called"] is False
+
+
+def test_synthetic_recall_ranking_uses_unicode_casefold_terms():
+    ranked = rank_synthetic_recall_items(
+        (
+            {"id": "match", "scope": "wiki", "title": "STRASSE", "snippet": "German casing"},
+            {"id": "miss", "scope": "wiki", "title": "Other", "snippet": "German casing"},
+        ),
+        "straße",
+        n=2,
+    )
+
+    assert [item["id"] for item in ranked["items"]] == ["match"]

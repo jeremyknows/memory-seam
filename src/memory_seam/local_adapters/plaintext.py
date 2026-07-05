@@ -17,7 +17,9 @@ from memory_seam.local_adapters.markdown import (
     _empty_summary,
     _clamp_recall_n,
     _query_terms,
+    _read_regular_file_no_follow,
     _safe_relative_path,
+    _scan_notice,
     _score,
     _snippet,
     _title_for,
@@ -75,6 +77,8 @@ class LocalPlainTextAdapter:
             return self._empty_result(root_status, limit_note=limit_note)
 
         terms = _query_terms(query)
+        if scope != "context" and not terms:
+            return self._empty_result("empty_query", limit_note=limit_note)
         matches: list[tuple[int, str, dict[str, Any]]] = []
         files_scanned = 0
         files_skipped = 0
@@ -104,22 +108,12 @@ class LocalPlainTextAdapter:
                 files_skipped += 1
                 continue
 
-            try:
-                stat = path.stat(follow_symlinks=False)
-            except OSError:
-                files_skipped += 1
-                continue
-            if stat.st_size > MAX_FILE_BYTES:
-                files_skipped += 1
-                continue
-
-            try:
-                raw = path.read_bytes()
-            except PermissionError:
+            read_status, raw = _read_regular_file_no_follow(path)
+            if read_status == "permission_denied":
                 permission_denied = True
                 files_skipped += 1
                 continue
-            except OSError:
+            if read_status != "ok" or raw is None:
                 files_skipped += 1
                 continue
 
@@ -136,7 +130,7 @@ class LocalPlainTextAdapter:
                 replacement_used = True
 
             title = _title_for(path, content)
-            score, best_index = _score(title, content, terms)
+            score, best_index = _score(title, content, terms, match_all_if_empty=scope == "context")
             if score <= 0:
                 continue
             item = self._item(
@@ -147,7 +141,7 @@ class LocalPlainTextAdapter:
                 score=score,
                 replacement_used=replacement_used,
             )
-            matches.append((score, title.lower(), item))
+            matches.append((score, title.casefold(), item))
 
         if plaintext_seen == 0:
             reason = "permission_denied" if permission_denied else "zero_plaintext_files"
@@ -167,6 +161,12 @@ class LocalPlainTextAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        if truncated:
+            summary["scan_notice"] = _scan_notice(
+                "scan_file_cap_reached",
+                "Local plain-text scan truncated",
+                f"Scan stopped after {MAX_SCAN_FILES} plain-text files; narrow the folder or query for complete recall.",
+            )
         if not matches and not truncated:
             summary["reason"] = "zero_match"
             self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
@@ -176,10 +176,7 @@ class LocalPlainTextAdapter:
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]["path"]))
         limit = max(0, int(n))
-        items = [item for _, _, item in matches[:limit]]
-        if truncated:
-            items.append(self._truncated_item(scope=scope, summary=summary))
-        return items
+        return [item for _, _, item in matches[:limit]]
 
     def _root_status(self) -> str | None:
         try:

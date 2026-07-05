@@ -6,7 +6,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 import hashlib
 from pathlib import Path, PurePosixPath
-import stat as stat_module
 import subprocess
 from typing import Any
 
@@ -18,6 +17,8 @@ from memory_seam.local_adapters.markdown import (
     _empty_summary,
     _clamp_recall_n,
     _query_terms,
+    _read_regular_file_no_follow,
+    _scan_notice,
     _score,
     _snippet,
     _title_for,
@@ -100,6 +101,8 @@ class LocalGitTreeAdapter:
             return self._empty_result(str(listing["reason"]), limit_note=limit_note)
 
         terms = _query_terms(query)
+        if scope != "context" and not terms:
+            return self._empty_result("empty_query", limit_note=limit_note)
         matches: list[tuple[int, str, dict[str, Any]]] = []
         files_scanned = 0
         files_skipped = 0
@@ -123,29 +126,12 @@ class LocalGitTreeAdapter:
                 break
 
             path = self._root.joinpath(*PurePosixPath(rel).parts)
-            try:
-                stat = path.stat(follow_symlinks=False)
-            except OSError:
-                files_skipped += 1
-                continue
-            if not stat_module.S_ISREG(stat.st_mode):
-                files_skipped += 1
-                if stat_module.S_ISDIR(stat.st_mode):
-                    gitlinks_skipped += 1
-                continue
-
             files_scanned += 1
-            if stat.st_size > MAX_FILE_BYTES:
+            read_status, raw = _read_regular_file_no_follow(path)
+            if read_status != "ok" or raw is None:
                 files_skipped += 1
-                continue
-
-            try:
-                raw = path.read_bytes()
-            except PermissionError:
-                files_skipped += 1
-                continue
-            except OSError:
-                files_skipped += 1
+                if read_status == "not_regular":
+                    gitlinks_skipped += 1
                 continue
 
             if b"\x00" in raw[: min(len(raw), 4096)]:
@@ -161,7 +147,7 @@ class LocalGitTreeAdapter:
                 replacement_used = True
 
             title = _title_for(path, content)
-            score, best_index = _score(title, content, terms)
+            score, best_index = _score(title, content, terms, match_all_if_empty=scope == "context")
             if score <= 0:
                 continue
             item = self._item(
@@ -172,7 +158,7 @@ class LocalGitTreeAdapter:
                 score=score,
                 replacement_used=replacement_used,
             )
-            matches.append((score, title.lower(), item))
+            matches.append((score, title.casefold(), item))
 
         if text_candidates_seen == 0:
             return self._empty_result(
@@ -194,6 +180,12 @@ class LocalGitTreeAdapter:
             "reason": None,
             "posture_rulings": dict(PRISM_POSTURE_RULINGS),
         }
+        if truncated:
+            summary["scan_notice"] = _scan_notice(
+                "scan_file_cap_reached",
+                "Local Git current-tree scan truncated",
+                f"Scan stopped after {MAX_SCAN_FILES} tracked text files; narrow the repository or query for complete recall.",
+            )
         if not matches and not truncated:
             summary["reason"] = "zero_match"
             self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
@@ -203,10 +195,7 @@ class LocalGitTreeAdapter:
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]["path"]))
         limit = max(0, int(n))
-        items = [item for _, _, item in matches[:limit]]
-        if truncated:
-            items.append(self._truncated_item(scope=scope, summary=summary))
-        return items
+        return [item for _, _, item in matches[:limit]]
 
     def _root_status(self) -> str | None:
         try:

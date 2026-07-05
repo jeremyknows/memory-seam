@@ -4,6 +4,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import memory_seam.local_adapters.markdown as markdown_module
 from memory_seam import (
     ADAPTER_PROTOCOL_VERSION,
     AdapterMemorySeamProvider,
@@ -122,6 +123,27 @@ def test_symlinked_files_and_dirs_are_not_followed(tmp_path: Path):
     assert [item["path"] for item in items] == ["visible.md"]
 
 
+def test_toctou_swap_to_symlink_is_not_followed(monkeypatch, tmp_path: Path):
+    victim = tmp_path / "victim.md"
+    victim.write_text("# Victim\n\nneedle", encoding="utf-8")
+    outside = tmp_path.parent / "markdown-race-outside.md"
+    outside.write_text("# Outside\n\nneedle", encoding="utf-8")
+    original = markdown_module._safe_relative_path
+    swapped = {"done": False}
+
+    def swap_before_open(path: Path, root: Path) -> str | None:
+        rel = original(path, root)
+        if path == victim and not swapped["done"]:
+            swapped["done"] = True
+            victim.unlink()
+            victim.symlink_to(outside)
+        return rel
+
+    monkeypatch.setattr(markdown_module, "_safe_relative_path", swap_before_open)
+
+    assert LocalMarkdownAdapter(tmp_path).recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+
+
 def test_invalid_utf8_uses_replacement_and_marks_item_degraded(tmp_path: Path):
     (tmp_path / "bad.md").write_bytes(b"# Bad\n\nneedle \xff recall")
 
@@ -170,12 +192,31 @@ def test_scan_summary_tracks_scanned_skipped_and_truncated(tmp_path: Path):
     adapter = LocalMarkdownAdapter(tmp_path)
     items = adapter.recall_items("needle", scope="wiki", token_subject=None, n=1)
 
-    assert items[-1]["title"] == "Local markdown scan truncated"
-    assert items[-1]["truncated"] is True
-    assert "Scan stopped after" in items[-1]["snippet"]
+    assert len(items) == 1
+    assert items[0]["title"] == "Note"
     assert adapter.last_scan_summary["files_scanned"] == MAX_SCAN_FILES
     assert adapter.last_scan_summary["files_skipped"] == 1
     assert adapter.last_scan_summary["truncated"] is True
+    assert adapter.last_scan_summary["scan_notice"]["title"] == "Local markdown scan truncated"
+    assert "Scan stopped after" in adapter.last_scan_summary["scan_notice"]["message"]
+
+
+def test_unicode_query_does_not_match_everything_when_unrelated(tmp_path: Path):
+    (tmp_path / "alpha.md").write_text("# Alpha\n\nEnglish only.", encoding="utf-8")
+    (tmp_path / "tokyo.md").write_text("# 東京\n\n東京 launch note.", encoding="utf-8")
+
+    items = LocalMarkdownAdapter(tmp_path).recall_items("東京", scope="wiki", token_subject=None, n=10)
+
+    assert [item["path"] for item in items] == ["tokyo.md"]
+
+
+def test_empty_normalized_query_returns_empty_query_without_browse_all(tmp_path: Path):
+    (tmp_path / "alpha.md").write_text("# Alpha\n\nContent exists.", encoding="utf-8")
+
+    adapter = LocalMarkdownAdapter(tmp_path)
+    assert adapter.recall_items("!!!", scope="wiki", token_subject=None, n=10) == []
+    assert adapter.last_empty_reason == "empty_query"
+    assert adapter.last_scan_summary["files_scanned"] == 0
 
 
 def _runtime(adapter: LocalMarkdownAdapter) -> LocalReadOnlyRuntime:

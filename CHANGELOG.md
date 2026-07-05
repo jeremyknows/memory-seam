@@ -12,8 +12,34 @@ publication, or write/custody/reindex work.
 
 ## [Unreleased]
 
+### Changed
+
+- **Non-breaking** — Hardened `memory-seam librarian init` and dogfood proofing:
+  template labels are reduced to single-line plain text, JSON template values
+  are escaped through `json.dumps`, init is restricted to the markdown adapter
+  for v0.2, doctor rejects non-markdown librarian configs, and the hostile-note
+  dogfood report now records retrieved hostile text as labeled data with a v0.3
+  prompt-injection-labeling limitation.
+  - Surface: librarian init/doctor/dogfood behavior, generated config values,
+    and dogfood report JSON.
+  - Migration: use `--adapter markdown` for librarian workspaces until
+    non-markdown MCP and dogfood support land.
+  - Rollback: revert the librarian sanitizer, markdown-only doctor/init checks,
+    hostile-note report fields, and related tests.
+
 ### Added
 
+- **Non-breaking** — Hardened the core local read path against adapter
+  symlink races, terminal control injection, empty Unicode-query browse-all
+  behavior, scan-notice `n` overflows, and receipt hygiene posture spoofing.
+  - Surface: local adapters, CLI human display, read receipts, envelope
+    snapshots, and regression tests.
+  - Migration: JSON envelope item fields remain raw for agent parsing; human
+    CLI output is sanitized, scan notices now live in `adapter_scan_summary`,
+    and `live_backend_called` separates no-live posture from local
+    `read_backend_called` evidence.
+  - Rollback: revert the adapter fd-open path, CLI display sanitizer, receipt
+    hygiene scan, and additive envelope snapshot field.
 - **Non-breaking** — Added `memory-seam librarian dogfood <workspace>` as an
   in-process v0.2 proof runner for memory-librarian workspaces.
   - Surface: librarian CLI, deterministic dogfood report JSON, docs, and

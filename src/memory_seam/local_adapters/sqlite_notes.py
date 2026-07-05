@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -15,6 +16,7 @@ from memory_seam.local_adapters.markdown import (
     _clamp_recall_n,
     _empty_summary,
     _query_terms,
+    _scan_notice,
     _score,
     _snippet,
     _with_limit_note,
@@ -78,6 +80,8 @@ class LocalSqliteAdapter:
         path = Path(db_path).expanduser().absolute()
         if _is_sensitive_app_cache_path(path):
             raise ValueError("sensitive_app_cache_blocked")
+        if _has_symlink_component(path):
+            raise ValueError("database_symlink_blocked")
         with _open_read_only_connection(path) as connection:
             rows = connection.execute(
                 "SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE ? ORDER BY name",
@@ -114,6 +118,8 @@ class LocalSqliteAdapter:
             return self._empty_result(_friendly_reason(error, timed_out=timed_out["value"]), limit_note=limit_note)
 
         terms = _query_terms(query)
+        if scope != "context" and not terms:
+            return self._empty_result("empty_query", limit_note=limit_note)
         matches: list[tuple[int, str, str, dict[str, Any]]] = []
         rows_seen = len(rows)
         rows_indexed = 0
@@ -129,7 +135,7 @@ class LocalSqliteAdapter:
                 continue
 
             rows_indexed += 1
-            score, best_index = _score(title, body, terms)
+            score, best_index = _score(title, body, terms, match_all_if_empty=scope == "context")
             if score <= 0:
                 continue
             item = self._item(
@@ -139,7 +145,7 @@ class LocalSqliteAdapter:
                 scope=scope,
                 score=score,
             )
-            matches.append((score, item["title"].lower(), item["path"], item))
+            matches.append((score, item["title"].casefold(), item["path"], item))
 
         if rows_seen == 0:
             return self._empty_result("zero_rows", rows_scanned=0, rows_indexed=0, truncated=False, limit_note=limit_note)
@@ -151,6 +157,12 @@ class LocalSqliteAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        if truncated:
+            summary["scan_notice"] = _scan_notice(
+                "row_cap_reached",
+                "Local SQLite row cap reached",
+                f"SQLite table scan stopped at {int(self.row_cap)} rows; narrow the copied database table for complete recall.",
+            )
         if not matches and not truncated:
             summary["reason"] = "zero_match"
             self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
@@ -160,19 +172,19 @@ class LocalSqliteAdapter:
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]))
         limit = max(0, int(n))
-        items = [item for _, _, _, item in matches[:limit]]
-        if truncated:
-            items.append(self._row_cap_item(scope=scope, summary=summary))
-        return items
+        return [item for _, _, _, item in matches[:limit]]
 
     def _path_status(self) -> str | None:
         if _is_sensitive_app_cache_path(self._db_path):
             return "sensitive_app_cache_blocked"
         try:
+            if _has_symlink_component(self._db_path):
+                return "database_symlink_blocked"
             if not self._db_path.exists():
                 return "missing_database"
             if not self._db_path.is_file():
                 return "not_a_file"
+            _validated_database_path(self._db_path)
         except PermissionError:
             return "permission_denied"
         except OSError:
@@ -280,10 +292,25 @@ class LocalSqliteAdapter:
 
 
 def _open_read_only_connection(path: Path) -> sqlite3.Connection:
-    connection = sqlite3.connect(_readonly_uri(path), uri=True, timeout=0.05)
+    connection = sqlite3.connect(_readonly_uri(_validated_database_path(path)), uri=True, timeout=0.05)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA query_only=ON")
     return connection
+
+
+def _validated_database_path(path: Path) -> Path:
+    expanded = path.expanduser().absolute()
+    if _has_symlink_component(expanded):
+        raise PermissionError("database symlink blocked")
+    approved_root = expanded.parent.resolve(strict=True)
+    resolved = Path(os.path.realpath(expanded, strict=True))
+    try:
+        resolved.relative_to(approved_root)
+    except ValueError as exc:
+        raise PermissionError("database path escaped approved root") from exc
+    if not resolved.is_file():
+        raise PermissionError("database is not a regular file")
+    return resolved
 
 
 def _readonly_uri(path: Path) -> str:
@@ -317,12 +344,34 @@ def _path_segment(value: str) -> str:
 
 
 def _is_sensitive_app_cache_path(path: Path) -> bool:
-    parts = path.expanduser().absolute().parts
+    expanded = path.expanduser().absolute()
+    try:
+        parts = Path(os.path.realpath(expanded, strict=True)).parts
+    except OSError:
+        parts = expanded.parts
+    parts = tuple(part.casefold() for part in parts)
     for suffix in SENSITIVE_APP_CACHE_SUFFIXES:
-        length = len(suffix)
+        folded_suffix = tuple(part.casefold() for part in suffix)
+        length = len(folded_suffix)
         for index in range(0, len(parts) - length + 1):
-            if parts[index : index + length] == suffix:
+            if parts[index : index + length] == folded_suffix:
                 return True
+    return False
+
+
+def _has_symlink_component(path: Path) -> bool:
+    expanded = path.expanduser().absolute()
+    parts = expanded.parts
+    if not parts:
+        return False
+    current = Path(parts[0])
+    for part in parts[1:]:
+        current = current / part
+        try:
+            if current.is_symlink():
+                return True
+        except OSError:
+            return False
     return False
 
 

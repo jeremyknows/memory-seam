@@ -27,7 +27,7 @@ ALLOWED_RETRIEVAL_BACKENDS = frozenset(
 )
 
 POSTURE_FALSE_FIELDS = (
-    "read_backend_called",
+    "live_backend_called",
     "service_started",
     "runtime_registry_consumed",
     "raw_fallback_used",
@@ -110,6 +110,8 @@ def assert_source_adapter_certified(
     allowed = enabled_runtime.handle(RuntimeRequest("GET", target))
     assert allowed["status_code"] == 200
     _assert_posture_flags_fail_closed(allowed["body"])
+    if allowed["body"]["items"]:
+        assert allowed["body"]["read_backend_called"] is True
     _assert_runtime_receipt_fail_closed(allowed["body"]["runtime"])
     _assert_items_safe(
         allowed["body"]["items"],

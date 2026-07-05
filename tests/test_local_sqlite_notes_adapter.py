@@ -122,6 +122,60 @@ def test_sensitive_app_cache_blocklist_returns_empty_reason(tmp_path: Path):
     assert adapter.last_scan_summary["reason"] == "sensitive_app_cache_blocked"
 
 
+def test_sensitive_app_cache_blocklist_resolves_casefolded_parts(tmp_path: Path):
+    db_path = tmp_path / "library" / "messages" / "chat.db"
+    db_path.parent.mkdir(parents=True)
+    _create_notes_db(db_path, [(1, "Blocked", "needle")])
+
+    adapter = LocalSqliteAdapter(
+        db_path=db_path,
+        table="notes",
+        id_column="note_id",
+        title_column="headline",
+        body_column="body",
+    )
+
+    assert adapter.recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+    assert adapter.last_empty_reason == "sensitive_app_cache_blocked"
+
+
+def test_sqlite_symlink_database_is_rejected_before_connect(tmp_path: Path):
+    real_db = tmp_path / "real.db"
+    _create_notes_db(real_db, [(1, "Real", "needle")])
+    link = tmp_path / "notes.db"
+    link.symlink_to(real_db)
+
+    adapter = LocalSqliteAdapter(
+        db_path=link,
+        table="notes",
+        id_column="note_id",
+        title_column="headline",
+        body_column="body",
+    )
+
+    assert adapter.recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+    assert adapter.last_empty_reason == "database_symlink_blocked"
+
+
+def test_sqlite_symlink_to_sensitive_cache_is_blocked_as_sensitive(tmp_path: Path):
+    sensitive = tmp_path / "Library" / "Messages" / "chat.db"
+    sensitive.parent.mkdir(parents=True)
+    _create_notes_db(sensitive, [(1, "Sensitive", "needle")])
+    link = tmp_path / "copied.db"
+    link.symlink_to(sensitive)
+
+    adapter = LocalSqliteAdapter(
+        db_path=link,
+        table="notes",
+        id_column="note_id",
+        title_column="headline",
+        body_column="body",
+    )
+
+    assert adapter.recall_items("needle", scope="wiki", token_subject=None, n=10) == []
+    assert adapter.last_empty_reason == "sensitive_app_cache_blocked"
+
+
 def test_locked_database_returns_friendly_empty_reason(tmp_path: Path):
     db_path = tmp_path / "notes.db"
     _create_notes_db(db_path, [(1, "Locked", "needle")])
@@ -208,10 +262,10 @@ def test_row_cap_limits_scan_and_adds_truncation_notice(tmp_path: Path):
     items = adapter.recall_items("needle", scope="wiki", token_subject=None, n=10)
 
     assert [item["path"] for item in items[:2]] == ["notes/1", "notes/2"]
-    assert items[-1]["title"] == "Local SQLite row cap reached"
-    assert items[-1]["truncated"] is True
+    assert len(items) == 2
     assert adapter.last_scan_summary["rows_scanned"] == 2
     assert adapter.last_scan_summary["truncated"] is True
+    assert adapter.last_scan_summary["scan_notice"]["title"] == "Local SQLite row cap reached"
 
 
 def test_statement_progress_limit_returns_timeout_reason(tmp_path: Path):
