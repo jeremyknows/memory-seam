@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from importlib import metadata
@@ -12,8 +13,13 @@ from pathlib import Path
 from typing import Any, Sequence
 from urllib.parse import urlencode
 
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion, Version
+
 from memory_seam_mcp import BRIDGE_VERSION, COMPATIBLE_CORE
 from memory_seam.adapters import AdapterMemorySeamProvider
+from memory_seam.contracts import MAX_QUERY_CHARS as CORE_MAX_QUERY_CHARS
+from memory_seam.contracts import MAX_RECALL_N as CORE_MAX_RECALL_N
 from memory_seam.local_adapters.markdown import LocalMarkdownAdapter
 from memory_seam.runtime import LocalReadOnlyRuntime, ReadOnlyRuntimeConfig, RuntimeRequest, StaticIdentityVerifier
 
@@ -32,6 +38,12 @@ SAFE_POSTURE_KEYS = (
 )
 CORE_DISTRIBUTION = "memory-seam"
 CORE_MODULE = "memory_seam"
+ALLOW_INCOMPATIBLE_ENV = "MEMORY_SEAM_MCP_ALLOW_INCOMPATIBLE"
+MAX_QUERY_CHARS = CORE_MAX_QUERY_CHARS
+MAX_QUERY_TERMS = 100
+MIN_RECALL_N = 1
+MAX_RECALL_N = CORE_MAX_RECALL_N
+QUERY_TERM_RE = re.compile(r"\S+")
 
 
 @dataclass(frozen=True)
@@ -57,20 +69,20 @@ def build_runtime(root: str | Path) -> LocalReadOnlyRuntime:
 
 
 def check_core_compatibility() -> None:
-    """Warn on compatible-range drift; fail only on clear major-version drift."""
+    """Fail when the installed core is outside the declared bridge range."""
 
     core_version = _installed_core_version()
     compatible = _version_satisfies(core_version, COMPATIBLE_CORE)
-    major_matches = _major(core_version) == _major(BRIDGE_VERSION)
     if compatible:
         return
     message = (
         f"{BRIDGE_NAME}: installed {CORE_DISTRIBUTION} {core_version} is outside "
         f"bridge {BRIDGE_VERSION} compatible core range {COMPATIBLE_CORE}"
     )
-    if not major_matches:
-        raise RuntimeError(message)
-    print(f"WARNING: {message}; continuing because major versions match", file=sys.stderr)
+    if os.environ.get(ALLOW_INCOMPATIBLE_ENV) == "1":
+        print(f"WARNING: {message}; continuing because {ALLOW_INCOMPATIBLE_ENV}=1", file=sys.stderr)
+        return
+    raise RuntimeError(f"{message}; set {ALLOW_INCOMPATIBLE_ENV}=1 to override intentionally")
 
 
 def _installed_core_version() -> str:
@@ -81,36 +93,11 @@ def _installed_core_version() -> str:
         return str(getattr(module, "__version__", "0.0.0"))
 
 
-def _major(version: str) -> int:
-    parts = _version_tuple(version)
-    return parts[0] if parts else -1
-
-
 def _version_satisfies(version: str, spec: str) -> bool:
-    version_tuple = _version_tuple(version)
-    for raw_clause in spec.split(","):
-        clause = raw_clause.strip()
-        if clause.startswith(">=") and version_tuple < _version_tuple(clause[2:]):
-            return False
-        if clause.startswith("<") and version_tuple >= _version_tuple(clause[1:]):
-            return False
-    return True
-
-
-def _version_tuple(version: str) -> tuple[int, ...]:
-    numeric = []
-    for part in version.split("."):
-        digits = ""
-        for char in part:
-            if not char.isdigit():
-                break
-            digits += char
-        if digits == "":
-            break
-        numeric.append(int(digits))
-    while len(numeric) < 3:
-        numeric.append(0)
-    return tuple(numeric)
+    try:
+        return Version(version) in SpecifierSet(spec)
+    except InvalidVersion as exc:
+        raise RuntimeError(f"{BRIDGE_NAME}: installed {CORE_DISTRIBUTION} version is invalid: {version}") from exc
 
 
 def memory_seam_health_envelope(runtime: LocalReadOnlyRuntime) -> dict[str, Any]:
@@ -141,21 +128,63 @@ def memory_seam_context_envelope(
 def memory_seam_recall_envelope(
     runtime: LocalReadOnlyRuntime,
     *,
-    query: str,
-    n: int = 5,
+    query: Any,
+    n: Any = 5,
 ) -> dict[str, Any]:
     """Return the full Memory Seam recall envelope."""
 
+    validation = _validate_recall_input(query=query, n=n)
+    if validation["error"] is not None:
+        return _bridge_error_envelope(400, validation["error"], validation["message"])
+    safe_query = validation["query"]
+    safe_n = validation["n"]
     target = "/recall?" + urlencode(
         {
-            "query": query,
+            "query": safe_query,
             "scope": "wiki",
-            "n": n,
+            "n": safe_n,
             "agent": AGENT_SUBJECT,
             "read_receipt": READ_RECEIPT_QUERY_VALUE,
         }
     )
     return _with_bridge_posture(runtime.handle(RuntimeRequest("GET", target)))
+
+
+def _validate_recall_input(*, query: Any, n: Any) -> dict[str, Any]:
+    if not isinstance(query, str):
+        return _validation_error("invalid_query_type", "query must be a string")
+    if len(query) > MAX_QUERY_CHARS:
+        return _validation_error(
+            "query_too_long",
+            f"query must be {MAX_QUERY_CHARS} characters or fewer",
+        )
+    term_count = len(QUERY_TERM_RE.findall(query.strip()))
+    if term_count > MAX_QUERY_TERMS:
+        return _validation_error(
+            "query_too_many_terms",
+            f"query must contain {MAX_QUERY_TERMS} terms or fewer",
+        )
+    if isinstance(n, bool) or not isinstance(n, int):
+        return _validation_error("invalid_n_type", "n must be an integer")
+    return {"query": query, "n": min(max(n, MIN_RECALL_N), MAX_RECALL_N), "error": None, "message": None}
+
+
+def _validation_error(error: str, message: str) -> dict[str, Any]:
+    return {"query": "", "n": 0, "error": error, "message": message}
+
+
+def _bridge_error_envelope(status_code: int, error: str, message: str) -> dict[str, Any]:
+    return _with_bridge_posture(
+        {
+            "status_code": status_code,
+            "body": {
+                "endpoint": "recall",
+                "error": error,
+                "message": message,
+                "contract_status": "bridge_input_rejected",
+            },
+        }
+    )
 
 
 def _with_bridge_posture(envelope: dict[str, Any]) -> dict[str, Any]:
@@ -235,7 +264,7 @@ def run_stdio_bridge(config: BridgeConfig) -> int:
         return memory_seam_context_envelope(runtime, include=include)
 
     @server.tool(name="memory_seam_recall", description="Memory Seam local markdown recall envelope.")
-    def memory_seam_recall(query: str, n: int = 5) -> dict[str, Any]:
+    def memory_seam_recall(query: Any, n: Any = 5) -> dict[str, Any]:
         return memory_seam_recall_envelope(runtime, query=query, n=n)
 
     server.run()

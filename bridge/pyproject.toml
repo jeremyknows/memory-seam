@@ -17,6 +17,7 @@ dependencies = [
   # installing this bridge package.
   "memory-seam @ git+https://github.com/jeremyknows/memory-seam.git",
   "mcp",
+  "packaging",
 ]
 
 [project.optional-dependencies]
