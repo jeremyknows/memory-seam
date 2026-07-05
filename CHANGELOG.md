@@ -37,6 +37,13 @@ publication, or write/custody/reindex work.
   - Surface: downstream fixture/certification helper.
   - Migration: adapter authors should run the helper against their adapter.
   - Rollback: revert helper and docs if the protocol moves to a packaged helper.
+- **Non-breaking** — Promoted the local markdown-folder example into the
+  first-party `memory_seam.local_adapters.markdown.LocalMarkdownAdapter`.
+  - Surface: packaged adapter API, examples, and adapter runtime envelopes.
+  - Migration: import `LocalMarkdownAdapter` from `memory_seam.local_adapters.markdown`;
+    `examples.local_markdown_provider.LocalMarkdownProvider` remains a shim.
+  - Rollback: revert the packaged adapter and keep the example shim pointing to
+    the prior example implementation.
 
 ### Changed
 

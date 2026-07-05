@@ -15,7 +15,6 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from examples.local_markdown_provider import LocalMarkdownProvider
 from memory_seam import (
     AdapterMemorySeamProvider,
     LocalReadOnlyRuntime,
@@ -23,6 +22,7 @@ from memory_seam import (
     RuntimeRequest,
     StaticIdentityVerifier,
 )
+from memory_seam.local_adapters.markdown import LocalMarkdownAdapter
 
 
 DEMO_NOTES = {
@@ -57,7 +57,7 @@ def build_runtime(notes_root: Path) -> LocalReadOnlyRuntime:
     return LocalReadOnlyRuntime(
         config=ReadOnlyRuntimeConfig(enabled=True, provider_name="local-markdown-demo"),
         provider=AdapterMemorySeamProvider(
-            LocalMarkdownProvider(notes_root),
+            LocalMarkdownAdapter(notes_root),
             provider_name="local-markdown-demo",
         ),
         identity_verifier=StaticIdentityVerifier(

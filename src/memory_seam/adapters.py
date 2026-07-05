@@ -445,6 +445,7 @@ class AdapterMemorySeamProvider:
         )
 
     def _envelope(self, *, endpoint: str, items: list[dict[str, Any]], timeout_ms: int, **extra: Any) -> dict[str, Any]:
+        adapter_metadata = self._adapter_metadata()
         return {
             "endpoint": endpoint,
             "provider": self.provider_name,
@@ -464,8 +465,29 @@ class AdapterMemorySeamProvider:
             "runtime_registry_consumed": False,
             "raw_fallback_used": False,
             "write_custody_or_reindex": False,
+            **adapter_metadata,
             **extra,
         }
+
+    def _adapter_metadata(self) -> dict[str, Any]:
+        metadata: dict[str, Any] = {}
+        protocol_version = getattr(self.adapter, "adapter_protocol_version", None)
+        if protocol_version is not None:
+            metadata["adapter_protocol_version"] = protocol_version
+
+        scan_summary = getattr(self.adapter, "last_scan_summary", None)
+        if callable(scan_summary):
+            scan_summary = scan_summary()
+        if isinstance(scan_summary, dict):
+            metadata["adapter_scan_summary"] = dict(scan_summary)
+            reason = scan_summary.get("reason")
+            if isinstance(reason, str) and reason:
+                metadata["reason"] = reason
+
+        empty_reason = getattr(self.adapter, "last_empty_reason", None)
+        if isinstance(empty_reason, str) and empty_reason:
+            metadata["reason"] = empty_reason
+        return metadata
 
     def _source_cards(self, *, include: Iterable[str], token_subject: str | None) -> list[dict[str, Any]]:
         if self.source_card_adapter is None:
