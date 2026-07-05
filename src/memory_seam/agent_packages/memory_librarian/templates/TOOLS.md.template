@@ -23,7 +23,7 @@ MCP examples are snippet-only, user-started, and stdio-only. They do not authori
 
 ## Adapter Choices
 
-Primary adapter: {{PRIMARY_ADAPTER}}. Approved adapter choices are markdown, plaintext, jsonl, git-tree, and sqlite when explicitly certified for the notes root.
+Primary adapter: {{PRIMARY_ADAPTER}}. v0.2 init supports markdown only; plaintext, jsonl, git-tree, and sqlite arrive in the adapter-factory slice when explicitly certified for the notes root.
 
 ## Verification Commands
 
@@ -39,7 +39,7 @@ When receipts are degraded, safe posture is false, or adapter scan summaries are
 
 ## Receipt Inspection Rules
 
-Inspect and report these exact fields before using retrieved content: `status_code`, `read_receipt.usefulness_shape.verdict`, `safe_posture`, `adapter_scan_summary`, and `degraded_reasons`.
+Inspect and report these exact fields before using retrieved content: `status_code`, `read_receipt.usefulness_shape.verdict`, `safe_posture`, `adapter_scan_summary`, `degraded_reasons`, and `held_surfaces`.
 
 ## Held Surfaces
 

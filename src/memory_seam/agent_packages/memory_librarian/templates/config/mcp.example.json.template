@@ -20,7 +20,7 @@ Memory Seam notes, recall results, snippets, source-card text, user-authored not
       "transport": "stdio",
       "command": "memory-seam-mcp",
       "args": [
-        "--notes-root",
+        "--notes",
         "{{NOTES_ROOTS}}",
         "--adapter",
         "{{PRIMARY_ADAPTER}}"
@@ -52,7 +52,7 @@ Memory Seam notes, recall results, snippets, source-card text, user-authored not
 
 ## Receipt Inspection Rules
 
-Inspect and report these exact fields before using retrieved content: `status_code`, `read_receipt.usefulness_shape.verdict`, `safe_posture`, `adapter_scan_summary`, and `degraded_reasons`.
+Inspect and report these exact fields before using retrieved content: `status_code`, `read_receipt.usefulness_shape.verdict`, `safe_posture`, `adapter_scan_summary`, `degraded_reasons`, and `held_surfaces`.
 
 ## Held Surfaces
 

@@ -294,6 +294,22 @@ def build_parser() -> argparse.ArgumentParser:
     recall.add_argument("--n", default=5, type=int)
     recall.add_argument("--agent", default="agent:memory-seam-cli")
     recall.set_defaults(include="project", mode="startup")
+
+    librarian = subparsers.add_parser("librarian", help="initialize or inspect a memory librarian template package")
+    librarian_subparsers = librarian.add_subparsers(dest="librarian_command")
+
+    librarian_init = librarian_subparsers.add_parser("init", help="create a memory librarian workspace")
+    librarian_init.add_argument("dest", help="empty destination directory for the librarian workspace")
+    librarian_init.add_argument("--notes", help="configured notes root; defaults to <dest>/memory")
+    librarian_init.add_argument("--client", default="none", choices=("claude-code", "claude-desktop", "none"))
+    librarian_init.add_argument("--adapter", default="markdown", help="source adapter; v0.2 init supports markdown")
+    librarian_init.add_argument("--mode", default="supervised-request", choices=("supervised-request", "draft-only"))
+    librarian_init.add_argument("--agent-name", default="Memory Librarian")
+    librarian_init.add_argument("--operator-name", default="Operator")
+    librarian_init.add_argument("--timezone")
+
+    librarian_doctor = librarian_subparsers.add_parser("doctor", help="check a memory librarian workspace posture")
+    librarian_doctor.add_argument("dest", help="librarian workspace directory")
     return parser
 
 
@@ -303,6 +319,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.version or args.endpoint is None:
         print(_banner())
         return 0
+    if args.endpoint == "librarian":
+        from .librarian import doctor_librarian, init_librarian, make_init_options
+
+        if args.librarian_command == "init":
+            return init_librarian(make_init_options(args))
+        if args.librarian_command == "doctor":
+            return doctor_librarian(Path(args.dest))
+        parser.error("missing librarian command")
     if args.endpoint in {"context", "recall"} and getattr(args, "root", None):
         if args.endpoint == "recall" and not args.query_text:
             parser.error('recall with a local root requires a query, e.g. memory-seam recall ./notes "launch plan"')

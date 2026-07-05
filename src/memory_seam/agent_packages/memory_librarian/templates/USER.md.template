@@ -34,7 +34,7 @@ Follow operator-provided local rules for notifications. If no rendered rules exi
 
 ## Receipt Inspection Rules
 
-Inspect and report these exact fields before using retrieved content: `status_code`, `read_receipt.usefulness_shape.verdict`, `safe_posture`, `adapter_scan_summary`, and `degraded_reasons`.
+Inspect and report these exact fields before using retrieved content: `status_code`, `read_receipt.usefulness_shape.verdict`, `safe_posture`, `adapter_scan_summary`, `degraded_reasons`, and `held_surfaces`.
 
 ## Held Surfaces
 

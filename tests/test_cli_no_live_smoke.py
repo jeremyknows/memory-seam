@@ -260,7 +260,7 @@ def test_cli_parser_has_no_write_like_or_live_commands():
     parser = build_parser()
     subparser_action = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
     choices = set(subparser_action.choices)
-    assert sorted(choices) == ["context", "health", "recall"]
+    assert sorted(choices) == ["context", "health", "librarian", "recall"]
     forbidden = {"write", "put", "post", "delete", "serve", "listen", "daemon", "live", "reindex", "custody"}
     assert not forbidden.intersection(choices)
     assert "write_like_routes" in CLI_HELD_SURFACES

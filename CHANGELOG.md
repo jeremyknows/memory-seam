@@ -14,6 +14,14 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added `memory-seam librarian init` and
+  `memory-seam librarian doctor` for creating and posture-checking the
+  memory-librarian template package workspace.
+  - Surface: CLI, packaged resources, and subprocess tests.
+  - Migration: none; init writes only inside the chosen destination and emits
+    MCP client snippets without mutating client config.
+  - Rollback: remove `src/memory_seam/librarian.py`, the librarian CLI
+    subcommands, and related tests/resources.
 - **Non-breaking** — Added the packaged
   `memory_seam.agent_packages.memory_librarian` template package/starter with
   schema-versioned role-card/config templates, receipt inspection posture,
