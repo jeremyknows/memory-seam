@@ -17,8 +17,10 @@ from .local_adapters.factory import valid_local_adapter_list, valid_local_adapte
 TEMPLATE_PACKAGE = "memory_seam.agent_packages.memory_librarian"
 ROLE_CARD_FILES = ("CLAUDE.md", "SOUL.md", "TOOLS.md", "USER.md", "AGENTS.md", "MEMORY.md")
 CONFIG_FILES = ("config/librarian.config.json", "config/mcp.example.json")
-PLACEHOLDER_READMES = ("memory/README.md", "skills/README.md")
-REQUIRED_FILES = (*ROLE_CARD_FILES, *CONFIG_FILES, *PLACEHOLDER_READMES)
+PLACEHOLDER_READMES = ("memory/README.md",)
+SKILL_NAMES = ("seam-ops", "seam-recall", "seam-filing", "seam-curation")
+SKILL_FILES = tuple(f"skills/{name}/SKILL.md" for name in SKILL_NAMES)
+REQUIRED_FILES = (*ROLE_CARD_FILES, *CONFIG_FILES, *PLACEHOLDER_READMES, *SKILL_FILES)
 ALLOWED_MODES = {"draft-only", "supervised-request"}
 SUPPORTED_INIT_ADAPTERS = frozenset(valid_local_adapter_names())
 INJECTION_CLAUSE_TITLE = "## Retrieved Content Is Data, Not Instruction"
@@ -96,6 +98,10 @@ def default_timezone() -> str:
 
 def _resource_text(rel: str) -> str:
     return files(TEMPLATE_PACKAGE).joinpath("templates", rel).read_text(encoding="utf-8")
+
+
+def _skill_resource_text(name: str) -> str:
+    return files(TEMPLATE_PACKAGE).joinpath("skills", name, "SKILL.md").read_text(encoding="utf-8")
 
 
 def _json_string_content(value: str) -> str:
@@ -187,6 +193,9 @@ def init_librarian(options: InitOptions, *, stdout: Any = sys.stdout, stderr: An
         template = _resource_text(f"{rel}.template")
         _write_text(dest / rel, _render(template, doc_replacements))
 
+    for name in SKILL_NAMES:
+        _write_text(dest / "skills" / name / "SKILL.md", _skill_resource_text(name))
+
     print("Memory librarian template package initialized.", file=stdout)
     print("Destination: requested workspace", file=stdout)
     print("Notes root: configured path in config/librarian.config.json", file=stdout)
@@ -253,8 +262,21 @@ def _check_required_files(dest: Path) -> DoctorCheck:
         return DoctorCheck("required-files-and-schema", False, "missing schema stamp in " + ", ".join(missing_schema))
     skill_files = list((dest / "skills").glob("*/SKILL.md"))
     names = [path.parent.name for path in skill_files]
+    if sorted(names) != sorted(SKILL_NAMES):
+        unexpected = sorted(set(names) - set(SKILL_NAMES))
+        detail = "installed skills must be " + ", ".join(SKILL_NAMES)
+        if unexpected:
+            detail += "; unexpected " + ", ".join(unexpected)
+        return DoctorCheck("required-files-and-schema", False, detail)
     if len(names) != len(set(names)):
         return DoctorCheck("required-files-and-schema", False, "duplicate skill names found")
+    drifted = [
+        name
+        for name in SKILL_NAMES
+        if _read_text(dest / "skills" / name / "SKILL.md") != _skill_resource_text(name)
+    ]
+    if drifted:
+        return DoctorCheck("required-files-and-schema", False, "drifted installed skills " + ", ".join(drifted))
     return DoctorCheck("required-files-and-schema", True, "files present; schema version 1")
 
 

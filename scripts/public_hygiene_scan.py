@@ -44,6 +44,7 @@ RECEIPT_INSPECTION_FIELDS = (
     "safe_posture",
     "adapter_scan_summary",
     "degraded_reasons",
+    "held_surfaces",
 )
 L6V_SUPERVISED_PROOF_ARTIFACT_SUFFIXES = {".json", ".yml", ".yaml", ".txt"}
 MAC_USER_PATH_PATTERN = "/" + "Users" + r"/[A-Za-z0-9._-]+"
@@ -205,7 +206,7 @@ def is_librarian_package_path(rel: str) -> bool:
 
 def is_skill_path(rel: str) -> bool:
     parts = Path(rel).parts
-    return len(parts) >= 2 and parts[0] == "skills" and parts[-1] == "SKILL.md"
+    return len(parts) >= 2 and "skills" in parts and parts[-1] == "SKILL.md"
 
 
 def is_librarian_template_or_skill(rel: str) -> bool:
@@ -261,6 +262,8 @@ def scan_librarian_posture_text(text: str, rel: str) -> list[HygieneHit]:
             line = _line_for(text, match.start())
             hits.append(HygieneHit(f"{rel}:{line}: authority_phrase: {match.group(0)[:80]}"))
         required_snippets = [RETRIEVED_CONTENT_CLAUSE_TITLE, "## Held Surfaces", *RECEIPT_INSPECTION_FIELDS]
+        if is_skill_path(rel):
+            required_snippets.append("No-authority-expansion rule:")
         for snippet in required_snippets:
             if snippet not in text:
                 hits.append(HygieneHit(f"{rel}:1: missing_required_librarian_posture: {snippet}"))

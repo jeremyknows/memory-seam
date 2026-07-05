@@ -247,6 +247,16 @@ def test_public_hygiene_scan_rejects_non_stdio_mcp_examples(tmp_path: Path):
     assert any("mcp_non_stdio_config" in hit for hit in hits)
 
 
+def test_public_hygiene_scan_rejects_packaged_skill_missing_posture(tmp_path: Path):
+    rel = "src/pkg/agent_packages/example/skills/seam-ops/SKILL.md"
+    write_text(tmp_path, rel, "---\nname: seam-ops\ndescription: bad\n---\n# seam-ops\n")
+
+    hits = public_hygiene_scan.scan(tmp_path)
+
+    assert any(f"{rel}:1: missing_required_librarian_posture" in hit for hit in hits)
+    assert any("No-authority-expansion rule:" in hit for hit in hits)
+
+
 def test_l6v_supervised_proof_hygiene_ratchet_is_documented():
     text = DOC.read_text(encoding="utf-8")
     assert "L6V supervised source-card proof ratchet" in text

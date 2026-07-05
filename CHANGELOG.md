@@ -14,6 +14,15 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added the memory-librarian packaged skills suite
+  (`seam-ops`, `seam-recall`, `seam-filing`, and `seam-curation`) as canonical
+  importlib resources copied into initialized workspaces.
+  - Surface: packaged resources, librarian init/doctor, public hygiene scan,
+    and snapshot/subprocess tests.
+  - Migration: existing generated workspaces should be re-initialized or have
+    the four packaged skills copied into `skills/` before running doctor.
+  - Rollback: remove the packaged `skills/*/SKILL.md` resources and restore
+    the placeholder skills README copy path.
 - **Non-breaking** — Added the local adapter factory and CLI adapter selection
   for `markdown`, `plaintext`, `jsonl`, `git-tree`, and explicitly mapped
   copied `sqlite` sources.
