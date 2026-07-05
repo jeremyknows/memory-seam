@@ -39,6 +39,13 @@ READ_RECEIPT_BACKEND_ERROR_REASONS = {
     "gbrain_timeout",
     "source_read_error",
 }
+SAFE_POSTURE_FIELDS = (
+    "read_backend_called",
+    "service_started",
+    "runtime_registry_consumed",
+    "raw_fallback_used",
+    "write_custody_or_reindex",
+)
 
 
 READ_RECEIPT_FIXTURE_PATH = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "memory_seam_read_receipts.json"
@@ -46,6 +53,23 @@ READ_RECEIPT_FIXTURE_PATH = Path(__file__).resolve().parents[2] / "tests" / "fix
 
 def read_receipt_enabled(value: str | None) -> bool:
     return (value or "").strip().lower() == READ_RECEIPT_OPT_IN_VALUE
+
+
+def build_receipt_summary(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact top-level receipt posture for CLI/agent callers."""
+
+    receipt = envelope.get("read_receipt") if isinstance(envelope.get("read_receipt"), dict) else {}
+    usefulness = receipt.get("usefulness_shape") if isinstance(receipt.get("usefulness_shape"), dict) else {}
+    verdict_value = usefulness.get("verdict")
+    reason_value = usefulness.get("reason_code")
+    verdict_missing = not isinstance(verdict_value, str) or not verdict_value.strip()
+    blocking_fields = [field for field in SAFE_POSTURE_FIELDS if bool(envelope.get(field))]
+    return {
+        "verdict": str(verdict_value).strip() if not verdict_missing else "missing",
+        "reason_code": str(reason_value).strip() if isinstance(reason_value, str) and reason_value.strip() else "receipt_missing",
+        "posture_verdict": "hold" if verdict_missing or blocking_fields else "safe",
+        "blocking_fields": blocking_fields,
+    }
 
 
 
@@ -606,4 +630,5 @@ def build_read_receipt(
     propagated_receipts = envelope.get("propagated_read_receipts") or []
     if propagated_receipts:
         receipt["propagated_receipts"] = propagated_receipts
+    envelope["receipt_summary"] = build_receipt_summary({**envelope, "read_receipt": receipt})
     return receipt

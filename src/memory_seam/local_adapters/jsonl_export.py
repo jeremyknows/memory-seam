@@ -15,10 +15,12 @@ from memory_seam.local_adapters.markdown import (
     MAX_SCAN_FILES,
     MAX_SNIPPET_CHARS,
     _empty_summary,
+    _clamp_recall_n,
     _query_terms,
     _safe_relative_path,
     _score,
     _snippet,
+    _with_limit_note,
 )
 
 LOCAL_JSONL_EXPORT_ADAPTER_NAME = "local-jsonl-export"
@@ -58,15 +60,16 @@ class LocalJsonlExportAdapter:
         return self._last_empty_reason
 
     def context_items(self, *, include: Iterable[str], token_subject: str | None) -> list[dict[str, Any]]:
-        return self._items(query="", scope="context", n=MAX_SCAN_FILES)
+        return self._items(query="", scope="context", n=MAX_SCAN_FILES, limit_note=None)
 
     def recall_items(self, query: str, *, scope: str, token_subject: str | None, n: int) -> list[dict[str, Any]]:
-        return self._items(query=query, scope=scope, n=n)
+        effective_n, limit_note = _clamp_recall_n(n)
+        return self._items(query=query, scope=scope, n=effective_n, limit_note=limit_note)
 
-    def _items(self, *, query: str, scope: str, n: int) -> list[dict[str, Any]]:
+    def _items(self, *, query: str, scope: str, n: int, limit_note: dict[str, Any] | None) -> list[dict[str, Any]]:
         root_status = self._root_status()
         if root_status is not None:
-            return self._empty_result(root_status)
+            return self._empty_result(root_status, limit_note=limit_note)
 
         terms = _query_terms(query)
         matches: list[tuple[int, str, str, dict[str, Any]]] = []
@@ -178,6 +181,7 @@ class LocalJsonlExportAdapter:
                 malformed_records=malformed_records,
                 files_with_record_cap=files_with_record_cap,
                 truncated=truncated,
+                limit_note=limit_note,
             )
 
         summary = {
@@ -190,6 +194,11 @@ class LocalJsonlExportAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        if not matches and not truncated and not files_with_record_cap:
+            summary["reason"] = "zero_match"
+            self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
+            return []
+        summary = _with_limit_note(summary, limit_note)
         self._set_scan_state(summary, None)
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2], match[3]["record_index"]))
@@ -372,18 +381,22 @@ class LocalJsonlExportAdapter:
         malformed_records: int = 0,
         files_with_record_cap: int = 0,
         truncated: bool = False,
+        limit_note: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         self._set_scan_state(
-            {
-                "files_scanned": files_scanned,
-                "files_skipped": files_skipped,
-                "records_seen": records_seen,
-                "records_indexed": records_indexed,
-                "malformed_records": malformed_records,
-                "files_with_record_cap": files_with_record_cap,
-                "truncated": truncated,
-                "reason": reason,
-            },
+            _with_limit_note(
+                {
+                    "files_scanned": files_scanned,
+                    "files_skipped": files_skipped,
+                    "records_seen": records_seen,
+                    "records_indexed": records_indexed,
+                    "malformed_records": malformed_records,
+                    "files_with_record_cap": files_with_record_cap,
+                    "truncated": truncated,
+                    "reason": reason,
+                },
+                limit_note,
+            ),
             reason,
         )
         return []

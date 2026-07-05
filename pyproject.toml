@@ -49,6 +49,7 @@ packages = ["src/memory_seam"]
 [tool.hatch.build.targets.sdist]
 include = [
   "/.github/workflows/tests.yml",
+  "/bridge",
   "/CONTRIBUTING.md",
   "/integrations",
   "/LICENSE",

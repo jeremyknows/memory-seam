@@ -18,6 +18,12 @@ SAFE_SOURCE_CARD_ADAPTER_STATUS = "safe_source_card_adapter_no_live_metadata_onl
 ADAPTER_PROTOCOL_VERSION = "0.2"
 SYNTHETIC_USEFULNESS_RUBRIC_VERSION = "synthetic_usefulness_rubric_v0"
 SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION = "synthetic_recall_ranking_fixture_v0"
+RECALL_LIMITS = {"max_n": MAX_RECALL_N}
+SCAN_TRUNCATED_ITEM_REASONS = {
+    "scan_file_cap_reached",
+    "record_cap_reached",
+    "row_cap_reached",
+}
 
 FORBIDDEN_SOURCE_CARD_FRAGMENTS = (
     "/" + "Users" + "/",
@@ -446,7 +452,8 @@ class AdapterMemorySeamProvider:
 
     def _envelope(self, *, endpoint: str, items: list[dict[str, Any]], timeout_ms: int, **extra: Any) -> dict[str, Any]:
         adapter_metadata = self._adapter_metadata()
-        return {
+        degraded_reasons = _envelope_degraded_reasons(items, adapter_metadata)
+        body = {
             "endpoint": endpoint,
             "provider": self.provider_name,
             "adapter": self.adapter.adapter_name,
@@ -456,8 +463,8 @@ class AdapterMemorySeamProvider:
             "source_card_adapter_status": SAFE_SOURCE_CARD_ADAPTER_STATUS,
             "items": items,
             "partial": False,
-            "degraded": False,
-            "degraded_reasons": [],
+            "degraded": bool(degraded_reasons),
+            "degraded_reasons": degraded_reasons,
             "backend_latency_ms": 0,
             "timeout_ms": timeout_ms,
             "read_backend_called": False,
@@ -468,6 +475,18 @@ class AdapterMemorySeamProvider:
             **adapter_metadata,
             **extra,
         }
+        if endpoint == "recall":
+            body["limits"] = dict(RECALL_LIMITS)
+        if endpoint in {"context", "recall"} and not items:
+            diagnostics = _zero_item_diagnostics(
+                endpoint=endpoint,
+                query=str(extra.get("query") or ""),
+                adapter_name=self.adapter.adapter_name,
+                adapter_metadata=adapter_metadata,
+            )
+            body["recall_diagnostics"] = diagnostics
+            body.setdefault("reason", diagnostics["zero_reason"])
+        return body
 
     def _adapter_metadata(self) -> dict[str, Any]:
         metadata: dict[str, Any] = {}
@@ -504,6 +523,96 @@ def synthetic_safe_content_provider() -> MemorySeamProvider:
     return AdapterMemorySeamProvider(SyntheticSafeContentAdapter(), SyntheticSourceCardAdapter())
 
 
+def _envelope_degraded_reasons(items: list[dict[str, Any]], adapter_metadata: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    summary = adapter_metadata.get("adapter_scan_summary")
+    if isinstance(summary, dict) and bool(summary.get("truncated")):
+        reasons.append("scan_truncated")
+    for item in items:
+        item_reasons = item.get("degraded_reasons") or []
+        if "utf8_replacement" in item_reasons:
+            reasons.append("utf8_replacement")
+        if item.get("truncated") or item.get("degraded_reason") in SCAN_TRUNCATED_ITEM_REASONS:
+            reasons.append("scan_truncated")
+    return _dedupe(reasons)
+
+
+def _zero_item_diagnostics(
+    *,
+    endpoint: str,
+    query: str,
+    adapter_name: str,
+    adapter_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    summary = adapter_metadata.get("adapter_scan_summary")
+    summary = summary if isinstance(summary, dict) else {}
+    zero_reason = str(adapter_metadata.get("reason") or summary.get("reason") or "")
+    if not zero_reason or zero_reason == "None":
+        zero_reason = "zero_match" if endpoint == "recall" else "zero_context"
+    files_scanned = _summary_int(summary, "files_scanned", fallback_key="rows_scanned")
+    files_skipped = _summary_int(summary, "files_skipped")
+    return {
+        "zero_reason": zero_reason,
+        "files_scanned": files_scanned,
+        "files_skipped": files_skipped,
+        "truncated": bool(summary.get("truncated")),
+        "suggestion": _zero_item_suggestion(
+            zero_reason=zero_reason,
+            adapter_name=adapter_name,
+            files_scanned=files_scanned,
+            files_skipped=files_skipped,
+            query=query,
+        ),
+    }
+
+
+def _summary_int(summary: dict[str, Any], key: str, *, fallback_key: str | None = None) -> int:
+    value = summary.get(key)
+    if value is None and fallback_key is not None:
+        value = summary.get(fallback_key)
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _zero_item_suggestion(
+    *,
+    zero_reason: str,
+    adapter_name: str,
+    files_scanned: int,
+    files_skipped: int,
+    query: str,
+) -> str:
+    if zero_reason == "zero_match":
+        return f"zero-match: scanned {files_scanned} files, none matched {query!r}"
+    if zero_reason == "zero_markdown_files":
+        if files_scanned == 0 and files_skipped:
+            return "wrong adapter? try --adapter plaintext"
+        return "add markdown files or try --adapter plaintext"
+    if zero_reason == "zero_plaintext_files":
+        return "try --adapter markdown, jsonl, or git-tree if this root is not plain text"
+    if zero_reason == "zero_json_export_files":
+        return "try --adapter markdown or plaintext for non-export folders"
+    if zero_reason in {"zero_git_text_files", "not_a_git_repository"}:
+        return "try --adapter plaintext or markdown for non-Git folders"
+    if zero_reason in {"zero_rows", "missing_table", "missing_column"}:
+        return "check the copied SQLite table and column mapping"
+    if adapter_name == "local-sqlite-notes":
+        return "check SQLite adapter configuration"
+    return "check adapter selection, root, and query"
+
+
+def _dedupe(values: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            deduped.append(value)
+    return deduped
+
+
 __all__ = [
     "ADAPTER_PROTOCOL_VERSION",
     "AdapterMemorySeamProvider",
@@ -512,6 +621,7 @@ __all__ = [
     "SAFE_DOGFOOD_ITEMS",
     "SAFE_SOURCE_CARD_ADAPTER_STATUS",
     "SAFE_SOURCE_CARDS",
+    "RECALL_LIMITS",
     "SYNTHETIC_RECALL_RANKING_FIXTURE_VERSION",
     "SYNTHETIC_USEFULNESS_RUBRIC_VERSION",
     "SourceAdapter",

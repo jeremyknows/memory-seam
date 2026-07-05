@@ -149,6 +149,12 @@
         }
       },
       "read_receipt_requested": "<bool>",
+      "receipt_summary": {
+        "blocking_fields": [],
+        "posture_verdict": "<str>",
+        "reason_code": "<str>",
+        "verdict": "<str>"
+      },
       "runtime": {
         "audit_persisted": "<bool>",
         "audit_receipt": {
@@ -337,6 +343,9 @@
           "truncated": "<bool>"
         }
       ],
+      "limits": {
+        "max_n": "<int>"
+      },
       "n": "<int>",
       "partial": "<bool>",
       "provider": "<str>",
@@ -429,6 +438,12 @@
         }
       },
       "read_receipt_requested": "<bool>",
+      "receipt_summary": {
+        "blocking_fields": [],
+        "posture_verdict": "<str>",
+        "reason_code": "<str>",
+        "verdict": "<str>"
+      },
       "runtime": {
         "audit_persisted": "<bool>",
         "audit_receipt": {

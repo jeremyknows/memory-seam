@@ -15,6 +15,7 @@ def test_readme_has_copy_pasteable_install_and_smoke_commands():
     assert "PYTHONPATH=src python3 examples/quickstart_smoke.py" in text
     assert "python3 -m pytest -q" in text
     assert "python3 scripts/public_hygiene_scan.py" in text
+    assert 'pip install "git+https://github.com/jeremyknows/memory-seam.git#subdirectory=bridge"' in text
 
 
 def test_readme_quickstart_preserves_no_live_boundary_language():

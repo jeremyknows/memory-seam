@@ -10,7 +10,15 @@ from typing import Any
 from urllib.parse import quote
 
 from memory_seam.adapters import ADAPTER_PROTOCOL_VERSION
-from memory_seam.local_adapters.markdown import MAX_SNIPPET_CHARS, _empty_summary, _query_terms, _score, _snippet
+from memory_seam.local_adapters.markdown import (
+    MAX_SNIPPET_CHARS,
+    _clamp_recall_n,
+    _empty_summary,
+    _query_terms,
+    _score,
+    _snippet,
+    _with_limit_note,
+)
 
 LOCAL_SQLITE_ADAPTER_NAME = "local-sqlite-notes"
 DEFAULT_ROW_CAP = 5_000
@@ -86,15 +94,16 @@ class LocalSqliteAdapter:
         return self._last_empty_reason
 
     def context_items(self, *, include: Iterable[str], token_subject: str | None) -> list[dict[str, Any]]:
-        return self._items(query="", scope="context", n=self.row_cap)
+        return self._items(query="", scope="context", n=self.row_cap, limit_note=None)
 
     def recall_items(self, query: str, *, scope: str, token_subject: str | None, n: int) -> list[dict[str, Any]]:
-        return self._items(query=query, scope=scope, n=n)
+        effective_n, limit_note = _clamp_recall_n(n)
+        return self._items(query=query, scope=scope, n=effective_n, limit_note=limit_note)
 
-    def _items(self, *, query: str, scope: str, n: int) -> list[dict[str, Any]]:
+    def _items(self, *, query: str, scope: str, n: int, limit_note: dict[str, Any] | None) -> list[dict[str, Any]]:
         path_status = self._path_status()
         if path_status is not None:
-            return self._empty_result(path_status)
+            return self._empty_result(path_status, limit_note=limit_note)
 
         timed_out = {"value": False}
         try:
@@ -102,7 +111,7 @@ class LocalSqliteAdapter:
                 self._install_progress_handler(connection, timed_out)
                 rows = connection.execute(self._select_sql(), (int(self.row_cap),)).fetchall()
         except (PermissionError, sqlite3.Error, OSError) as error:
-            return self._empty_result(_friendly_reason(error, timed_out=timed_out["value"]))
+            return self._empty_result(_friendly_reason(error, timed_out=timed_out["value"]), limit_note=limit_note)
 
         terms = _query_terms(query)
         matches: list[tuple[int, str, str, dict[str, Any]]] = []
@@ -133,7 +142,7 @@ class LocalSqliteAdapter:
             matches.append((score, item["title"].lower(), item["path"], item))
 
         if rows_seen == 0:
-            return self._empty_result("zero_rows", rows_scanned=0, rows_indexed=0, truncated=False)
+            return self._empty_result("zero_rows", rows_scanned=0, rows_indexed=0, truncated=False, limit_note=limit_note)
 
         summary = {
             "rows_scanned": rows_seen,
@@ -142,6 +151,11 @@ class LocalSqliteAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        if not matches and not truncated:
+            summary["reason"] = "zero_match"
+            self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
+            return []
+        summary = _with_limit_note(summary, limit_note)
         self._set_scan_state(summary, None)
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]))
@@ -243,15 +257,19 @@ class LocalSqliteAdapter:
         rows_scanned: int = 0,
         rows_indexed: int = 0,
         truncated: bool = False,
+        limit_note: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         self._set_scan_state(
-            {
-                "rows_scanned": rows_scanned,
-                "rows_indexed": rows_indexed,
-                "row_cap": int(self.row_cap),
-                "truncated": truncated,
-                "reason": reason,
-            },
+            _with_limit_note(
+                {
+                    "rows_scanned": rows_scanned,
+                    "rows_indexed": rows_indexed,
+                    "row_cap": int(self.row_cap),
+                    "truncated": truncated,
+                    "reason": reason,
+                },
+                limit_note,
+            ),
             reason,
         )
         return []

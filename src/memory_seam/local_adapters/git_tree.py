@@ -16,10 +16,12 @@ from memory_seam.local_adapters.markdown import (
     MAX_SCAN_FILES,
     MAX_SNIPPET_CHARS,
     _empty_summary,
+    _clamp_recall_n,
     _query_terms,
     _score,
     _snippet,
     _title_for,
+    _with_limit_note,
 )
 from memory_seam.local_adapters.plaintext import _normalize_extension
 
@@ -82,19 +84,20 @@ class LocalGitTreeAdapter:
         return self._last_empty_reason
 
     def context_items(self, *, include: Iterable[str], token_subject: str | None) -> list[dict[str, Any]]:
-        return self._items(query="", scope="context", n=MAX_SCAN_FILES)
+        return self._items(query="", scope="context", n=MAX_SCAN_FILES, limit_note=None)
 
     def recall_items(self, query: str, *, scope: str, token_subject: str | None, n: int) -> list[dict[str, Any]]:
-        return self._items(query=query, scope=scope, n=n)
+        effective_n, limit_note = _clamp_recall_n(n)
+        return self._items(query=query, scope=scope, n=effective_n, limit_note=limit_note)
 
-    def _items(self, *, query: str, scope: str, n: int) -> list[dict[str, Any]]:
+    def _items(self, *, query: str, scope: str, n: int, limit_note: dict[str, Any] | None) -> list[dict[str, Any]]:
         root_status = self._root_status()
         if root_status is not None:
-            return self._empty_result(root_status)
+            return self._empty_result(root_status, limit_note=limit_note)
 
         listing = self._git_ls_files()
         if listing["status"] != "ok":
-            return self._empty_result(str(listing["reason"]))
+            return self._empty_result(str(listing["reason"]), limit_note=limit_note)
 
         terms = _query_terms(query)
         matches: list[tuple[int, str, dict[str, Any]]] = []
@@ -179,6 +182,7 @@ class LocalGitTreeAdapter:
                 binary_files_skipped=binary_files_skipped,
                 gitlinks_skipped=gitlinks_skipped,
                 truncated=truncated,
+                limit_note=limit_note,
             )
 
         summary = {
@@ -190,6 +194,11 @@ class LocalGitTreeAdapter:
             "reason": None,
             "posture_rulings": dict(PRISM_POSTURE_RULINGS),
         }
+        if not matches and not truncated:
+            summary["reason"] = "zero_match"
+            self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
+            return []
+        summary = _with_limit_note(summary, limit_note)
         self._set_scan_state(summary, None)
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]["path"]))
@@ -306,17 +315,21 @@ class LocalGitTreeAdapter:
         binary_files_skipped: int = 0,
         gitlinks_skipped: int = 0,
         truncated: bool = False,
+        limit_note: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         self._set_scan_state(
-            {
-                "files_scanned": files_scanned,
-                "files_skipped": files_skipped,
-                "binary_files_skipped": binary_files_skipped,
-                "gitlinks_skipped": gitlinks_skipped,
-                "truncated": truncated,
-                "reason": reason,
-                "posture_rulings": dict(PRISM_POSTURE_RULINGS),
-            },
+            _with_limit_note(
+                {
+                    "files_scanned": files_scanned,
+                    "files_skipped": files_skipped,
+                    "binary_files_skipped": binary_files_skipped,
+                    "gitlinks_skipped": gitlinks_skipped,
+                    "truncated": truncated,
+                    "reason": reason,
+                    "posture_rulings": dict(PRISM_POSTURE_RULINGS),
+                },
+                limit_note,
+            ),
             reason,
         )
         return []

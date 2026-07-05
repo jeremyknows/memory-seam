@@ -20,7 +20,7 @@ from .adapters import AdapterMemorySeamProvider
 from .adapters import synthetic_safe_content_provider
 from .local_adapters.factory import build_local_adapter, valid_local_adapter_names
 from .providers import provider_handlers
-from .receipts import read_receipt_enabled
+from .receipts import build_receipt_summary, read_receipt_enabled
 from .router import route_request
 from .runtime import LocalReadOnlyRuntime, ReadOnlyRuntimeConfig, RuntimeRequest, StaticIdentityVerifier
 
@@ -105,7 +105,7 @@ def no_live_response(endpoint: str, *, include: str, mode: str, agent: str | Non
         "write_custody_or_reindex": False,
         "held_surfaces": list(CLI_HELD_SURFACES),
     }
-    return {**response, "body": body}
+    return _with_receipt_summary({**response, "body": body})
 
 
 def _local_provider_name(adapter: str) -> str:
@@ -167,7 +167,7 @@ def local_adapter_response(
         )
     else:
         raise ValueError(f"unsupported local adapter CLI endpoint: {endpoint}")
-    return build_local_runtime(adapter, root, **(config or {})).handle(RuntimeRequest("GET", target))
+    return _with_receipt_summary(build_local_runtime(adapter, root, **(config or {})).handle(RuntimeRequest("GET", target)))
 
 
 def local_markdown_response(
@@ -203,6 +203,12 @@ def _safe_posture(body: dict[str, Any]) -> dict[str, bool]:
 
 
 def _receipt_summary(body: dict[str, Any]) -> tuple[str, str, dict[str, bool]]:
+    summary = body.get("receipt_summary") or {}
+    if isinstance(summary, dict):
+        verdict = str(summary.get("verdict") or "")
+        reason = str(summary.get("reason_code") or "")
+        if verdict and reason:
+            return verdict, reason, _safe_posture(body)
     receipt = body.get("read_receipt") or {}
     usefulness = receipt.get("usefulness_shape") or {}
     verdict = str(usefulness.get("verdict") or "not_evaluated")
@@ -218,10 +224,63 @@ def _scan_count(body: dict[str, Any]) -> int:
     summary = body.get("adapter_scan_summary") or {}
     if isinstance(summary, dict):
         try:
-            return int(summary.get("files_scanned") or 0)
+            return int(summary.get("files_scanned") or summary.get("rows_scanned") or 0)
         except (TypeError, ValueError):
             return 0
     return 0
+
+
+def _with_receipt_summary(response: dict[str, Any]) -> dict[str, Any]:
+    body = dict(response.get("body") or {})
+    if body.get("endpoint") in {"context", "recall"}:
+        body["receipt_summary"] = build_receipt_summary(body)
+    return {**response, "body": body}
+
+
+def _warning_line(body: dict[str, Any]) -> str | None:
+    reasons = [str(reason) for reason in body.get("degraded_reasons", []) or [] if str(reason)]
+    surfaced = [reason for reason in ("scan_truncated", "utf8_replacement") if reason in reasons]
+    if not surfaced:
+        return None
+    return _style.yellow("WARNING: degraded result: " + ", ".join(surfaced))
+
+
+def _empty_result_line(body: dict[str, Any], *, adapter: str) -> str:
+    diagnostics = body.get("recall_diagnostics") or {}
+    if not isinstance(diagnostics, dict):
+        return "No matches."
+    zero_reason = str(diagnostics.get("zero_reason") or "")
+    suggestion = str(diagnostics.get("suggestion") or "").strip()
+    files_scanned = _safe_int(diagnostics.get("files_scanned"))
+    files_skipped = _safe_int(diagnostics.get("files_skipped"))
+    if zero_reason == "zero_match" and suggestion:
+        return f"No matches. {suggestion}"
+    label = _scan_label(adapter)
+    skipped = f" ({files_skipped} other files skipped)" if files_skipped else ""
+    truncated = " before scan cap" if diagnostics.get("truncated") else ""
+    suffix = f" - {suggestion}" if suggestion else ""
+    return f"No matches. Scanned {files_scanned} {label}{skipped}{truncated}{suffix}"
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _scan_label(adapter: str) -> str:
+    if adapter == "markdown":
+        return "markdown files"
+    if adapter == "plaintext":
+        return "plain-text files"
+    if adapter == "jsonl":
+        return "JSON export files"
+    if adapter == "git-tree":
+        return "tracked text files"
+    if adapter == "sqlite":
+        return "SQLite rows"
+    return "files"
 
 
 def _receipt_line(verdict: str, reason: str) -> str:
@@ -274,8 +333,11 @@ def _print_human_local_response(
         sys.stdout.write("\r" + _style.cyan(ready) + "\033[K\n")
     else:
         print(_style.cyan(ready))
+    warning = _warning_line(body)
+    if warning is not None:
+        print(warning)
     if not items:
-        print("No matches.")
+        print(_empty_result_line(body, adapter=adapter))
     for index, item in enumerate(items, start=1):
         title = str(item.get("title") or "(untitled)")
         path = str(item.get("path") or ".")

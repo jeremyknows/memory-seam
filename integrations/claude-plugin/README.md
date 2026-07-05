@@ -35,7 +35,7 @@ The plugin includes `.mcp.json` with a `memory-seam-mcp` server:
   "mcpServers": {
     "memory-seam-mcp": {
       "command": "memory-seam-mcp",
-      "args": ["--notes", "./notes"]
+      "args": ["--root", "./notes"]
     }
   }
 }
@@ -46,7 +46,7 @@ The official plugin notes used for this package did not specify environment-vari
 Install the bridge where Claude Code can find it:
 
 ```bash
-pip install "git+https://github.com/jeremyknows/memory-seam-mcp.git"
+pip install "git+https://github.com/jeremyknows/memory-seam.git#subdirectory=bridge"
 memory-seam-mcp --help
 ```
 

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memory-seam-mcp"
+version = "0.1.0"
+description = "Memory Seam MCP stdio bridge for local markdown notes."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [
+  { name = "Jeremy Knows", email = "jeremyknows@users.noreply.github.com" },
+]
+dependencies = [
+  # In-repo development installs the core package from the same checkout before
+  # installing this bridge package.
+  "memory-seam",
+  "mcp",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+]
+
+[project.scripts]
+memory-seam-mcp = "memory_seam_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/memory_seam_mcp"]

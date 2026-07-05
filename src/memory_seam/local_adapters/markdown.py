@@ -11,6 +11,7 @@ import re
 from typing import Any
 
 from memory_seam.adapters import ADAPTER_PROTOCOL_VERSION
+from memory_seam.contracts import MAX_RECALL_N
 
 LOCAL_MARKDOWN_ADAPTER_NAME = "local-markdown-folder"
 MAX_FILE_BYTES = 1_000_000
@@ -93,6 +94,24 @@ def _empty_summary(reason: str) -> dict[str, Any]:
     }
 
 
+def _clamp_recall_n(n: int) -> tuple[int, dict[str, Any] | None]:
+    requested = int(n)
+    effective = min(max(requested, 1), MAX_RECALL_N)
+    if effective == requested:
+        return effective, None
+    return effective, {
+        "n_requested": requested,
+        "n_effective": effective,
+        "n_limit_note": f"n clamped from {requested} to {effective}; valid range is 1..{MAX_RECALL_N}",
+    }
+
+
+def _with_limit_note(summary: dict[str, Any], limit_note: dict[str, Any] | None) -> dict[str, Any]:
+    if limit_note is None:
+        return summary
+    return {**summary, **limit_note}
+
+
 @dataclass(frozen=True)
 class LocalMarkdownAdapter:
     """Structural SourceAdapter for a local folder of markdown files.
@@ -121,15 +140,16 @@ class LocalMarkdownAdapter:
         return self._last_empty_reason
 
     def context_items(self, *, include: Iterable[str], token_subject: str | None) -> list[dict[str, Any]]:
-        return self._items(query="", scope="context", n=MAX_SCAN_FILES)
+        return self._items(query="", scope="context", n=MAX_SCAN_FILES, limit_note=None)
 
     def recall_items(self, query: str, *, scope: str, token_subject: str | None, n: int) -> list[dict[str, Any]]:
-        return self._items(query=query, scope=scope, n=n)
+        effective_n, limit_note = _clamp_recall_n(n)
+        return self._items(query=query, scope=scope, n=effective_n, limit_note=limit_note)
 
-    def _items(self, *, query: str, scope: str, n: int) -> list[dict[str, Any]]:
+    def _items(self, *, query: str, scope: str, n: int, limit_note: dict[str, Any] | None) -> list[dict[str, Any]]:
         root_status = self._root_status()
         if root_status is not None:
-            return self._empty_result(root_status)
+            return self._empty_result(root_status, limit_note=limit_note)
 
         terms = _query_terms(query)
         matches: list[tuple[int, str, dict[str, Any]]] = []
@@ -207,6 +227,7 @@ class LocalMarkdownAdapter:
                 files_scanned=files_scanned,
                 files_skipped=files_skipped,
                 truncated=truncated,
+                limit_note=limit_note,
             )
 
         summary = {
@@ -215,6 +236,11 @@ class LocalMarkdownAdapter:
             "truncated": truncated,
             "reason": None,
         }
+        if not matches and not truncated:
+            summary["reason"] = "zero_match"
+            self._set_scan_state(_with_limit_note(summary, limit_note), "zero_match")
+            return []
+        summary = _with_limit_note(summary, limit_note)
         self._set_scan_state(summary, None)
 
         matches.sort(key=lambda match: (-match[0], match[1], match[2]["path"]))
@@ -339,14 +365,18 @@ class LocalMarkdownAdapter:
         files_scanned: int = 0,
         files_skipped: int = 0,
         truncated: bool = False,
+        limit_note: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         self._set_scan_state(
-            {
-                "files_scanned": files_scanned,
-                "files_skipped": files_skipped,
-                "truncated": truncated,
-                "reason": reason,
-            },
+            _with_limit_note(
+                {
+                    "files_scanned": files_scanned,
+                    "files_skipped": files_skipped,
+                    "truncated": truncated,
+                    "reason": reason,
+                },
+                limit_note,
+            ),
             reason,
         )
         return []
@@ -360,6 +390,9 @@ __all__ = [
     "LOCAL_MARKDOWN_ADAPTER_NAME",
     "LocalMarkdownAdapter",
     "MAX_FILE_BYTES",
+    "MAX_RECALL_N",
     "MAX_SCAN_FILES",
     "MAX_SNIPPET_CHARS",
+    "_clamp_recall_n",
+    "_with_limit_note",
 ]

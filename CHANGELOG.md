@@ -14,6 +14,25 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added quick-win recall diagnostics for local adapter empty
+  results, top-level receipt summaries, degradation warnings, and local recall
+  `n` clamping to 1..20.
+  - Surface: local adapter recall/context envelopes, CLI human output, and
+    adapter scan summaries.
+  - Migration: callers can continue reading existing fields; new fields are
+    additive (`recall_diagnostics`, `receipt_summary`, `limits`, and additional
+    `degraded_reasons`).
+  - Rollback: remove the additive envelope/display rollups and restore adapter
+    recall limits to caller-supplied values.
+- **Non-breaking** — Consolidated the `memory-seam-mcp` stdio bridge into this
+  repository under `bridge/`, with subdirectory install docs, bridge-local
+  packaging/tests, and startup core-version compatibility checks.
+  - Surface: `bridge/`, README/integration docs, plugin install docs, source
+    distribution contents, public hygiene coverage, and boundary tests.
+  - Migration: install the bridge with
+    `pip install "git+https://github.com/jeremyknows/memory-seam.git#subdirectory=bridge"`.
+  - Rollback: remove `bridge/`, restore standalone bridge install docs, and
+    drop the bridge boundary/hygiene regression tests.
 - **Non-breaking** — Added the Claude Code plugin shell for Memory Seam with
   generated librarian skill copies, plugin-local MCP bridge config, sync script,
   parity coverage, and install docs.
