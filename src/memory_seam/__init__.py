@@ -1,5 +1,7 @@
 """Portable no-live Memory Seam core package."""
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .adapters import *  # noqa: F401,F403
 from .atlas_query_bridge import *  # noqa: F401,F403
 from .confidentiality_classification import *  # noqa: F401,F403
@@ -21,7 +23,13 @@ from .write_custody_operation_classes import *  # noqa: F401,F403
 from .write_custody_rollback_audit import *  # noqa: F401,F403
 from .write_intent_preflight_gate import *  # noqa: F401,F403
 
+try:
+    __version__ = version("memory-seam")
+except PackageNotFoundError:
+    __version__ = "0.1.0"
+
 __all__ = [
+    "__version__",
     "ATLAS_QUERY_BRIDGE_CONTRACT_VERSION",
     "ATLAS_QUERY_BRIDGE_CONTRACT_COMPATIBILITY",
     "ATLAS_QUERY_BRIDGE_CONTRACT_MAJOR",

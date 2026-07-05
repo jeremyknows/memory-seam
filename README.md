@@ -1,58 +1,45 @@
 # Memory Seam
 
-Memory Seam is a portable, no-live memory-boundary core for agent memory systems.
+Memory Seam is a portable, receipt-first boundary layer that sits between AI agents and their memory backends: agents ask through the seam, and the seam enforces authority, scoping, and receipts before anything can be returned. It is for engineers building agent memory, RAG, personal knowledge, or internal assistant systems who need a small Python core that makes memory access auditable and fail-closed instead of letting every agent read directly from every backend.
 
-It provides the package boundary, contracts, policy helpers, descriptors, receipts, provider protocols, and synthetic examples needed to evaluate memory access behavior without connecting to live systems.
+## Why This Exists
 
-## Public release status
+When agents read memory directly, you usually lose the record of what was requested, why it was allowed, and which authority boundary was supposed to apply. That makes debugging hard and security reviews worse. Memory Seam moves that decision into one narrow layer: route the request, verify identity/scope, return metadata-only receipts, and deny before read when authority is missing. The current package is intentionally no-live and read-only so the contracts can be tested without connecting to private systems.
 
-- Public v0.1.0 source package under Apache-2.0.
-- Scope: no-live/read-only core package.
-- Included now: contracts, policy, descriptors, provider protocols/null provider, receipts, router, testing helpers, downstream bridge helpers, a default-off read-only runtime skeleton, and synthetic source adapter/usefulness proofs.
-- Not included: live adapter implementation, service/listener activation, credentials, runtime registry consumption, unsupervised reads, writes/custody/reindex, provider/prod/canary authority, or package publication automation.
-- The repository is designed so package use does not require private source decks, local operator paths, live services, credentials, or production checkouts.
+## Install (Verified E2E)
 
-## Operator quickstart
+Requires Python >=3.10.
 
-Use this path when evaluating Memory Seam from a fresh clone or from a local
-wheel/install artifact. The quickstart stays fully synthetic: it does not start a service, discover
-local sources, call a network, consume Runtime Registry, read private/live data,
-fall back to raw reads, publish packages, or perform write/custody/reindex
-behavior.
+```bash
+pip install "git+https://github.com/jeremyknows/memory-seam.git"
+```
 
-### 1. Clone and install locally
+Clone and editable install alternative:
 
 ```bash
 git clone https://github.com/jeremyknows/memory-seam.git
 cd memory-seam
-python -m pip install -e .
+python3 -m pip install -e .
 ```
 
-If you already have a local wheel from `docs/packaging.md`, install that wheel in
-a temporary environment instead of publishing it:
+## 60-Second Quickstart
 
 ```bash
-python -m pip install dist/memory_seam-*.whl
-```
-
-### 2. Run the no-live context/recall smoke
-
-```bash
+git clone https://github.com/jeremyknows/memory-seam.git
+cd memory-seam
 python examples/quickstart_smoke.py
 ```
 
-The example builds `LocalReadOnlyRuntime` with `synthetic_safe_content_provider()`
-and `StaticIdentityVerifier`, then sends one `/context` request and one `/recall`
-request. Both requests ask for metadata-only receipts and only read committed
-synthetic fixtures.
-
-Expected shape:
+Expected output shape, trimmed from a real run:
 
 ```json
 {
   "context": {
     "endpoint": "context",
-    "items": ["Memory Seam project boundary", "Default-off runtime answer"],
+    "items": [
+      "Memory Seam project boundary",
+      "Default-off runtime answer"
+    ],
     "receipt_verdict": "useful",
     "safe_posture": {
       "raw_fallback_used": false,
@@ -65,7 +52,9 @@ Expected shape:
   },
   "recall": {
     "endpoint": "recall",
-    "items": ["Default-off runtime answer"],
+    "items": [
+      "Default-off runtime answer"
+    ],
     "receipt_verdict": "useful",
     "safe_posture": {
       "raw_fallback_used": false,
@@ -79,63 +68,102 @@ Expected shape:
 }
 ```
 
-### 3. Inspect null and fake provider examples
+This proves the seam can answer a context request and a recall request through the local runtime using committed synthetic fixtures only. The receipts are metadata-only, there are no live reads or raw fallbacks, and the posture flags stay fail-closed for service startup, Runtime Registry consumption, backend reads, and write/custody/reindex behavior.
 
-```bash
-python examples/null_and_fake_providers.py
+## Build Your Own Provider
+
+```python
+from dataclasses import dataclass
+from memory_seam import (
+    AdapterMemorySeamProvider, LocalReadOnlyRuntime, ReadOnlyRuntimeConfig,
+    RuntimeRequest, StaticIdentityVerifier,
+)
+
+@dataclass(frozen=True)
+class MyAdapter:
+    adapter_name: str = "my-fixture"
+
+    def context_items(self, *, include, token_subject):
+        return [{
+            "id": "hello", "scope": "context", "include_family": "project",
+            "source_tier": "fixture", "backend": "local",
+            "retrieval_backend": "metadata_only", "canonicality": "example",
+            "private_class": "reportable_synthetic", "title": "Hello seam",
+            "snippet": "This came through a provider, not a raw backend read.",
+        }]
+
+    def recall_items(self, query, *, scope, token_subject, n):
+        return self.context_items(include=["project"], token_subject=token_subject)[:n]
+
+runtime = LocalReadOnlyRuntime(
+    ReadOnlyRuntimeConfig(enabled=True, provider_name="my-fixture"),
+    AdapterMemorySeamProvider(MyAdapter()),
+    StaticIdentityVerifier("agent:demo", frozenset({"context", "wiki"})),
+)
+print(runtime.handle(RuntimeRequest("GET", "/context?include=project"))["body"]["items"][0]["title"])
 ```
 
-The null-provider example shows the safe unconfigured envelope with no items and
-`provider_unconfigured`. The fake-provider example shows how downstream adapter
-work can start with committed, deterministic fixtures before any live provider
-exists. Both examples route through the public provider protocol and assert the
-same no-live posture: no backend read, no service start, no Runtime Registry
-consumption, no raw fallback, and no write/custody/reindex behavior.
+Provider protocols are deliberately small: implement health/context/recall directly with `MemorySeamProvider`, or wrap a read-only adapter with `AdapterMemorySeamProvider` as shown above.
 
-### 4. Run the local verification gate
+## Capabilities And Non-Goals
 
-```bash
-pytest -q
-python scripts/public_hygiene_scan.py
-python -m py_compile src/memory_seam/*.py tests/*.py scripts/*.py examples/*.py
-```
+| Area | What it does | What it deliberately does NOT do |
+| --- | --- | --- |
+| Core runtime | In-process, read-only routing for health/context/recall | Start a live service, listener, daemon, or network server |
+| Authority | Static/demo identity verification, scope checks, deny-before-read paths | Trust query strings as authority or silently widen access |
+| Receipts | Metadata-only read receipts and runtime posture flags | Persist audit logs or expose raw/private source content |
+| Providers | Protocols, null provider, synthetic fixtures, adapter wrapper | Ship a production memory backend or call one by default |
+| Policy/descriptors | Safe contracts for scoped source metadata and grants | Discover local sources or consume Runtime Registry state |
+| Writes | Explicit write-like route/payload denial | Write memory, custody records, delete, reindex, rollback, or purge |
+| Network | Installable Python package with local examples | Make runtime network calls from the core package |
 
-Packaging metadata and local build smoke instructions live in
-`docs/packaging.md`. Publication to a package registry is a separate maintainer
-decision; this repository does not automate registry upload.
+## Architecture In 6 Lines
 
-## Development
+1. Agents call Memory Seam routes such as `/context` and `/recall`.
+2. The local runtime verifies identity/scope before provider callbacks run.
+3. Providers return report-safe items and posture flags through a narrow protocol.
+4. Receipts describe what happened without exposing raw source content.
+5. Core owns contracts, routing, policy, descriptors, receipts, and no-live examples.
+6. Adapters own backend-specific reads outside core; see [adapter import boundary](docs/adapter-import-boundary.md) and [package boundary](docs/package-boundary.md).
 
-```bash
-python -m pip install -e .
-pytest -q
-```
+Deep docs live in [docs/README.md](docs/README.md).
 
-## Package layout
+## Documentation
 
-```text
-src/memory_seam/
-  adapters.py
-  contracts.py
-  policy.py
-  descriptors.py
-  providers.py
-  receipts.py
-  router.py
-  atlas_query_bridge.py
-  runtime.py
-  testing.py
-```
+Start with `docs/README.md` for the documentation taxonomy across public package docs, runtime/contracts notes, downstream adapter notes, and examples. See `CHANGELOG.md` for the API/schema stability ledger.
 
-Start with `docs/README.md` for the documentation taxonomy across public package
-docs, runtime/contracts notes, downstream adapter notes, and examples.
+Public v0.1.0 source package under Apache-2.0 is packaged as a no-live/read-only core. It does not include live adapter implementation, service/listener activation, credentials, Runtime Registry consumption, unsupervised reads, writes/custody/reindex, provider/prod/canary authority, or package publication automation.
 
-Key package-boundary docs:
-
-- See `CHANGELOG.md` for the API/schema stability ledger and future PR entry template.
-- `docs/package-boundary.md` — no-live, downstream-adapter, and release-authority alignment checklist.
-- `docs/atlas-query-bridge.md` and `docs/atlas-query-migration.md` — downstream adapter bridge/migration guidance without reversing dependencies into core.
-- `docs/adapter-import-boundary.md` — compatibility rule: adapters may import Memory Seam package surfaces, but Memory Seam core must not import downstream adapter/runtime/service code.
-- `docs/default-off-runtime.md`, `docs/envelope-schema-snapshots.md`, `docs/schema-contracts.md`, and `docs/policy-semantics-decision-note.md` — runtime/schema/policy contract notes.
-- `docs/f2-verifier-packet.md`, `docs/f3-manual-pull-dogfood.md`, `docs/f3-source-card-usefulness-proof.md`, `docs/f3-verifier-packet.md`, `docs/no-service-identity-semantics.md`, and `docs/f4-verifier-packet.md` — verifier, dogfood, usefulness, and identity packets with preserved holds.
+- `docs/atlas-query-migration.md` — migration guide for downstream Atlas Query adapters, package dependency shape, rollback, and no-submodule boundary.
+- `docs/f2-verifier-packet.md` — F2 verifier packet for policy semantics, denial-before-read evidence, CI/local checks, and residual no-live holds.
+- `docs/f3-manual-pull-dogfood.md` — supervised manual-pull dogfood runbook using committed synthetic source-card fixtures only.
+- `docs/f3-source-card-usefulness-proof.md` — source-card usefulness proof with PASS/HOLD/FAIL outcomes and no raw fallback.
+- `docs/f3-verifier-packet.md` — F3 verifier packet for manual-pull/source-card evidence and the bounded F4 identity unlock.
+- `docs/no-service-identity-semantics.md` — no-service identity semantics for subject, acting-for, audience/scope, query/body mismatch, and held service/live/write authority.
+- `docs/f4-verifier-packet.md` — F4 verifier packet for no-service identity negative matrix evidence and F10 hygiene-prep unlock.
+- `docs/policy-semantics-decision-note.md` — policy semantics decision note for descriptor/grant intersection, denial reasons, and held surfaces.
 - `docs/public-private-hygiene-inventory.md` — public/private hygiene inventory covering public surfaces, scanner target classes, safe exceptions, and omitted private planning material.
+- `docs/contract-test-inventory.md` — map from committed tests to the discoverability and safety invariants they protect.
+
+## Project Status
+
+Memory Seam is v0.1.0 public source. The API may evolve while the package boundary is still hardening. Current scope is no-live/read-only core behavior, examples, contracts, and tests.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md). Before proposing a change, run:
+
+```bash
+python3 -m pytest -q
+python3 scripts/public_hygiene_scan.py
+```
+
+Keep contributions inside the portable package boundary: no credentials, no private paths, no service activation, no live/private reads, and no write/custody/reindex behavior.
+
+## Security
+
+Report vulnerabilities through GitHub Security Advisories for this repo. See [SECURITY.md](SECURITY.md) for supported surfaces and the current no-live security boundary.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
