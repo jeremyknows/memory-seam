@@ -15,7 +15,7 @@ authors = [
 dependencies = [
   # In-repo development installs the core package from the same checkout before
   # installing this bridge package.
-  "memory-seam",
+  "memory-seam @ git+https://github.com/jeremyknows/memory-seam.git",
   "mcp",
 ]
 
@@ -29,3 +29,6 @@ memory-seam-mcp = "memory_seam_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/memory_seam_mcp"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

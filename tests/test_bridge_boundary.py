@@ -21,10 +21,9 @@ def test_core_package_keeps_empty_dependency_boundary() -> None:
     assert "\ndependencies = []\n" in text
 
 
-def test_bridge_declares_own_dependencies_and_plain_core_dependency() -> None:
+def test_bridge_declares_own_dependencies_and_core_dependency() -> None:
     text = (REPO_ROOT / "bridge" / "pyproject.toml").read_text(encoding="utf-8")
 
     assert 'name = "memory-seam-mcp"' in text
-    assert '"memory-seam",' in text
+    assert '"memory-seam @ git+https://github.com/jeremyknows/memory-seam.git",' in text
     assert '"mcp",' in text
-    assert "git+https://github.com/jeremyknows/memory-seam.git" not in text
