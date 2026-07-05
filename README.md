@@ -38,13 +38,36 @@ Install memory-seam (pip install "git+https://github.com/jeremyknows/memory-seam
 
 ## Claude Code Plugin
 
-Memory Seam ships a Claude Code plugin shell at [`integrations/claude-plugin`](integrations/claude-plugin/README.md). Install it from a clone with:
+Memory Seam ships one repo with three installable surfaces:
+
+- Core: the `memory-seam` Python package from the repo root.
+- Bridge: the `memory-seam-mcp` MCP stdio package from [`bridge`](bridge/README.md).
+- Plugin: the Claude Code plugin shell at [`integrations/claude-plugin`](integrations/claude-plugin/README.md).
+
+Install the plugin from a clone with:
 
 ```bash
 claude --plugin-dir ./memory-seam/integrations/claude-plugin
 ```
 
 The plugin exposes the canonical librarian skills as `/memory-seam:seam-recall`, `/memory-seam:seam-filing`, `/memory-seam:seam-curation`, and `/memory-seam:seam-ops`, paired with a local `memory-seam-mcp` bridge config.
+
+Install the paired bridge where Claude Code can find it:
+
+```bash
+pip install "git+https://github.com/jeremyknows/memory-seam.git#subdirectory=bridge"
+```
+
+## MCP Bridge
+
+The bridge lives in [`bridge`](bridge/README.md) as its own Python package named `memory-seam-mcp`. It installs the `memory-seam-mcp` executable used by MCP clients and by the plugin `.mcp.json` config:
+
+```bash
+pip install "git+https://github.com/jeremyknows/memory-seam.git#subdirectory=bridge"
+memory-seam-mcp --help
+```
+
+For in-repo development, `bridge/scripts/verify.sh` installs the root core package from this checkout, then installs and tests the bridge package.
 
 ## 60-Second Quickstart
 
