@@ -14,6 +14,14 @@ publication, or write/custody/reindex work.
 
 ### Added
 
+- **Non-breaking** — Added stdlib-only CLI polish for local markdown
+  recall/context: a small startup/version banner, TTY-aware ANSI styling for
+  human output, colored receipt verdict lines, and tests preserving byte-stable
+  `--json` output.
+  - Surface: CLI human output and CLI tests.
+  - Migration: none; JSON envelopes are unchanged.
+  - Rollback: revert `src/memory_seam/_style.py` and the CLI display-layer
+    styling if terminal output needs to return to plain text.
 - **Non-breaking** — Added
   `memory_seam.local_adapters.plaintext.LocalPlainTextAdapter`, a read-only
   local plain-text folder adapter with configurable extension allowlist,

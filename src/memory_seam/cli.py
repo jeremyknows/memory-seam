@@ -10,10 +10,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Sequence
 from urllib.parse import urlencode
 
+from . import _style
 from .adapters import AdapterMemorySeamProvider
 from .adapters import synthetic_safe_content_provider
 from .local_adapters.markdown import LocalMarkdownAdapter
@@ -41,6 +43,14 @@ FATAL_ADAPTER_REASONS = {
     "permission_denied": "permission denied",
     "root_unavailable": "root is unavailable",
 }
+TAGLINE = "receipt-first memory boundary for AI agents"
+
+
+def _version() -> str:
+    try:
+        return version("memory-seam")
+    except PackageNotFoundError:
+        return "0.1.0"
 
 
 def no_live_response(endpoint: str, *, include: str, mode: str, agent: str | None, query: str, scope: str, n: int) -> dict[str, Any]:
@@ -163,21 +173,62 @@ def _format_posture(posture: dict[str, bool]) -> str:
     return ", ".join(f"{key}={str(value).lower()}" for key, value in posture.items())
 
 
-def _print_human_local_markdown(response: dict[str, Any]) -> None:
+def _scan_count(body: dict[str, Any]) -> int:
+    summary = body.get("adapter_scan_summary") or {}
+    if isinstance(summary, dict):
+        try:
+            return int(summary.get("files_scanned") or 0)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
+def _receipt_line(verdict: str, reason: str) -> str:
+    base = f"Receipt: verdict={verdict}; reason={reason};"
+    if verdict == "useful":
+        return _style.green(f"✓ {base}")
+    if verdict in {"degraded", "empty", "not_evaluated"}:
+        return _style.yellow(base)
+    if verdict == "error":
+        return _style.red(base)
+    return _style.yellow(base)
+
+
+def _banner() -> str:
+    name = "memory-seam"
+    version_text = f"v{_version()}"
+    inner = f" {name}  {version_text} "
+    border = "+" + "-" * len(inner) + "+"
+    return "\n".join(
+        (
+            border,
+            f"|{inner}|",
+            border,
+            TAGLINE,
+            "usage: memory-seam recall <root> \"query\"",
+            "       memory-seam context <root> [--json]",
+        )
+    )
+
+
+def _print_human_local_markdown(response: dict[str, Any], *, root: str | Path) -> None:
     body = dict(response.get("body") or {})
     items = list(body.get("items") or [])
+    root_label = str(Path(root).expanduser().absolute())
+    ready = f"memory-seam v{_version()} · adapter=markdown · root={root_label} · {_scan_count(body)} files scanned"
+    print(_style.cyan(ready))
     if not items:
         print("No matches.")
     for index, item in enumerate(items, start=1):
         title = str(item.get("title") or "(untitled)")
         path = str(item.get("path") or ".")
         snippet = " ".join(str(item.get("snippet") or "").split())
-        print(f"{index}. {title}")
-        print(f"   {path}")
+        print(f"{index}. {_style.bold(title)}")
+        print(f"   {_style.dim(_style.cyan(path))}")
         if snippet:
             print(f"   {snippet}")
     verdict, reason, posture = _receipt_summary(body)
-    print(f"Receipt: verdict={verdict}; reason={reason}; safe_posture={_format_posture(posture)}")
+    print(_receipt_line(verdict, reason), _style.dim(f"safe_posture={_format_posture(posture)}"))
 
 
 def _fatal_adapter_message(root: str | Path, response: dict[str, Any]) -> str | None:
@@ -193,7 +244,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="memory-seam",
         description="Read local markdown through Memory Seam or run no-live synthetic smoke checks.",
     )
-    subparsers = parser.add_subparsers(dest="endpoint", required=True)
+    parser.add_argument("--version", action="store_true", help="show version and usage")
+    subparsers = parser.add_subparsers(dest="endpoint")
 
     health = subparsers.add_parser("health", help="emit synthetic provider health JSON")
     health.set_defaults(include="project", mode="startup", agent=None, query="", scope="wiki", n=5)
@@ -223,6 +275,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.version or args.endpoint is None:
+        print(_banner())
+        return 0
     if args.endpoint in {"context", "recall"} and getattr(args, "root", None):
         if args.endpoint == "recall" and not args.query_text:
             parser.error('recall with a local root requires a query, e.g. memory-seam recall ./notes "launch plan"')
@@ -234,12 +289,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         fatal = _fatal_adapter_message(args.root, response)
         if fatal is not None:
-            print(fatal, file=sys.stderr)
+            print(_style.red(fatal), file=sys.stderr)
             return 2
         if args.json:
             print(json.dumps(_json_safe(response), indent=2, sort_keys=True))
         else:
-            _print_human_local_markdown(response)
+            _print_human_local_markdown(response, root=args.root)
         return 0 if int(response.get("status_code", 1)) < 400 else 1
 
     payload = no_live_response(

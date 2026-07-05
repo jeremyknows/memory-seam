@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pytest
 
+import memory_seam.cli as cli_module
+from memory_seam import _style
 from memory_seam.cli import CLI_HELD_SURFACES, build_parser, no_live_response
+from memory_seam.cli import _json_safe, main
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -78,6 +81,8 @@ def test_local_markdown_recall_human_output_happy_path(tmp_path: Path):
 
     completed = run_cli_completed("recall", str(tmp_path), "CLI recall", "--n", "1", check=True)
 
+    assert "memory-seam v0.1.0 · adapter=markdown" in completed.stdout
+    assert "1 files scanned" in completed.stdout
     assert "1. Launch Notes" in completed.stdout
     assert "   launch.md" in completed.stdout
     assert "CLI recall test snippet" in completed.stdout
@@ -105,6 +110,113 @@ def test_local_markdown_recall_json_full_envelope(tmp_path: Path):
     assert body["read_receipt"]["usefulness_shape"]["verdict"] == "useful"
     assert body["runtime"]["decision"] == "allowed"
     assert body["allowed_scopes"] == ["context", "wiki"]
+
+
+def test_style_helper_enables_only_for_supported_tty(monkeypatch):
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+
+    assert _style.bold("Title") == "\033[1mTitle\033[0m"
+    assert _style.dim("path.md") == "\033[2mpath.md\033[0m"
+    assert _style.green("ok") == "\033[32mok\033[0m"
+    assert _style.yellow("warn") == "\033[33mwarn\033[0m"
+    assert _style.red("err") == "\033[31merr\033[0m"
+    assert _style.cyan("root") == "\033[36mroot\033[0m"
+
+
+@pytest.mark.parametrize(
+    ("isatty", "env", "term"),
+    [
+        (False, {}, "xterm-256color"),
+        (True, {"NO_COLOR": "1"}, "xterm-256color"),
+        (True, {}, "dumb"),
+    ],
+)
+def test_style_helper_disables_for_pipe_no_color_and_dumb_term(monkeypatch, isatty, env, term):
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: isatty)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("TERM", term)
+
+    assert _style.cyan("plain") == "plain"
+
+
+def test_local_markdown_recall_uses_style_when_stdout_is_tty(monkeypatch, tmp_path: Path, capsys):
+    (tmp_path / "launch.md").write_text("# Launch Notes\n\nCLI recall taste.", encoding="utf-8")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+
+    assert main(["recall", str(tmp_path), "taste", "--n", "1"]) == 0
+
+    captured = capsys.readouterr()
+    assert "\033[36mmemory-seam v0.1.0 · adapter=markdown" in captured.out
+    assert "1. \033[1mLaunch Notes\033[0m" in captured.out
+    assert "\033[2m\033[36mlaunch.md\033[0m\033[0m" in captured.out
+    assert "\033[32m✓ Receipt: verdict=useful; reason=safe_context_sufficient;\033[0m" in captured.out
+    assert captured.err == ""
+
+
+def test_local_markdown_recall_no_color_disables_style(monkeypatch, tmp_path: Path, capsys):
+    (tmp_path / "launch.md").write_text("# Launch Notes\n\nCLI recall taste.", encoding="utf-8")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("TERM", "xterm-256color")
+
+    assert main(["recall", str(tmp_path), "taste", "--n", "1"]) == 0
+
+    captured = capsys.readouterr()
+    assert "\033[" not in captured.out
+    assert "✓ Receipt: verdict=useful; reason=safe_context_sufficient;" in captured.out
+
+
+def test_local_markdown_json_output_is_byte_identical_to_envelope_dump(monkeypatch, tmp_path: Path, capsys):
+    (tmp_path / "notes.md").write_text(
+        "# Agent Notes\n\nAgents should check receipt_verdict and safe_posture.",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    response = {
+        "status_code": 200,
+        "body": {
+            "endpoint": "recall",
+            "items": [{"title": "Agent Notes", "path": "notes.md"}],
+            "allowed_scopes": frozenset({"wiki", "context"}),
+        },
+    }
+    monkeypatch.setattr(cli_module, "local_markdown_response", lambda *args, **kwargs: response)
+
+    expected = json.dumps(_json_safe(response), indent=2, sort_keys=True)
+    assert main(["recall", str(tmp_path), "receipt_verdict", "--json"]) == 0
+
+    captured = capsys.readouterr()
+    assert captured.out == expected + "\n"
+    assert "\033[" not in captured.out
+    assert captured.err == ""
+
+
+def test_banner_on_no_args_exits_zero():
+    completed = run_cli_completed()
+
+    assert completed.returncode == 0
+    lines = completed.stdout.splitlines()
+    assert lines[0].startswith("+") and set(lines[0][1:-1]) == {"-"} and lines[0].endswith("+")
+    assert lines[1] == "| memory-seam  v0.1.0 |"
+    assert lines[2] == lines[0]
+    # box borders must exactly match the content-line width (alignment is the point)
+    assert len(lines[0]) == len(lines[1])
+    assert "receipt-first memory boundary for AI agents" in completed.stdout
+    assert 'usage: memory-seam recall <root> "query"' in completed.stdout
+    assert completed.stderr == ""
+
+    version_completed = run_cli_completed("--version")
+    assert version_completed.returncode == 0
+    assert version_completed.stdout == completed.stdout
+    assert version_completed.stderr == ""
 
 
 def test_local_markdown_context_json_full_envelope(tmp_path: Path):
