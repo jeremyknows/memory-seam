@@ -234,7 +234,7 @@ Start with `docs/README.md` for the documentation taxonomy across public package
 
 Public v0.1.0 source package under Apache-2.0 is packaged as a no-live/read-only core. It does not include live adapter implementation, service/listener activation, credentials, runtime registry consumption, unsupervised reads, writes/custody/reindex, provider/prod/canary authority, or package publication automation.
 
-- `docs/atlas-query-migration.md` — migration guide for downstream Atlas Query adapters, package dependency shape, rollback, and no-submodule boundary.
+- `docs/atlas-query-migration.md` — reference/example adapter migration guide for downstream Atlas Query-style adapters, package dependency shape, rollback, and no-submodule boundary.
 - `docs/f2-verifier-packet.md` — F2 verifier packet for policy semantics, denial-before-read evidence, CI/local checks, and residual no-live holds.
 - `docs/f3-manual-pull-dogfood.md` — supervised manual-pull dogfood runbook using committed synthetic source-card fixtures only.
 - `docs/f3-source-card-usefulness-proof.md` — source-card usefulness proof with PASS/HOLD/FAIL outcomes and no raw fallback.

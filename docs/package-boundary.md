@@ -12,7 +12,7 @@ Memory Seam is a public Apache-2.0 Python source package for a portable no-live/
 
 - contracts, policy, descriptors, provider protocols/null provider, receipts, router, testing helpers, and the default-off read-only runtime skeleton;
 - synthetic examples and test fixtures that prove context/recall behavior without live sources;
-- a package-local Atlas Query bridge helper that defines downstream adapter contract shape without importing downstream runtime or service code.
+- a package-local reference-adapter bridge helper that defines downstream adapter contract shape without importing downstream runtime or service code.
 
 The package does not include and must not imply:
 
