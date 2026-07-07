@@ -6,6 +6,14 @@ Memory Seam is a portable, receipt-first boundary layer that sits between AI age
 
 When agents read memory directly, you usually lose the record of what was requested, why it was allowed, and which authority boundary was supposed to apply. That makes debugging hard and security reviews worse. Memory Seam moves that decision into one narrow layer: route the request, verify identity/scope, return metadata-only receipts, and deny before read when authority is missing. The current package is intentionally no-live and read-only so the contracts can be tested without connecting to private systems.
 
+## Three Things That Make This More Than A Router
+
+Most memory routers just return items. Memory Seam's receipts carry three load-bearing designs that are easy to miss on a skim — each is real, tested, shipped code, not just a field name:
+
+- **`usefulness_shape`** ([`receipts.py`](src/memory_seam/receipts.py)) — every recall receipt scores whether the read actually *answered the task* from safe content, not just whether it succeeded. `verdict` is `useful` / `not_useful` / `not_evaluated`, paired with a `reason_code` (`safe_context_sufficient`, `too_redacted`, `too_degraded`, `disabled_baseline_better`, ...). That lets an agent — or a human reviewing one — tell "this returned content" apart from "this content actually helped," without reading raw source text.
+- **The write-custody model** ([`write_custody_approval.py`](src/memory_seam/write_custody_approval.py), [`write_custody_operation_classes.py`](src/memory_seam/write_custody_operation_classes.py), [`write_custody_rollback_audit.py`](src/memory_seam/write_custody_rollback_audit.py), [`write_intent_preflight_gate.py`](src/memory_seam/write_intent_preflight_gate.py)) — Memory Seam is read-only today, but writes were designed as a companion custody layer from the start, not bolted on later: a named custody owner, a human approver, exact actor binding, expiry, a max-operation-count, and a rollback/audit plan per operation class, all denied-before-callback and default-off pending an explicit future unhold. The scaffold ships now so the shape is reviewable long before it's ever live.
+- **Flight records** ([`receipts.py`](src/memory_seam/receipts.py)) — every read outcome classifies into the smallest report-safe next action instead of a bare pass/fail: `denied_before_read` → `potential_grant_request` (owner); `degraded_backend` → `fix_backend` (memory_seam); `answered_from_safe_context` → nothing to do; `safe_context_insufficient` → `needs_source_card` (librarian). The seam names who owns the next step, not just what happened.
+
 ## Install (Verified E2E)
 
 Requires Python >=3.10.
@@ -244,6 +252,10 @@ Public v0.1.0 source package under Apache-2.0 is packaged as a no-live/read-only
 - `docs/policy-semantics-decision-note.md` — policy semantics decision note for descriptor/grant intersection, denial reasons, and held surfaces.
 - `docs/public-private-hygiene-inventory.md` — public/private hygiene inventory covering public surfaces, scanner target classes, safe exceptions, and omitted private planning material.
 - `docs/contract-test-inventory.md` — map from committed tests to the discoverability and safety invariants they protect.
+
+## Provenance
+
+This repo's public git history starts at the extraction boundary from the private working repos this package was built in — it does not carry the full incremental commit/issue trail that some internal docs reference (issue numbers into the high hundreds). That gap is structural, not hidden: the build ran under a heavily-gated, receipted internal process, and what's public here is the extracted, slimmed result. See [`archive/build-rails/README.md`](archive/build-rails/README.md) for what that internal process looked like and why most of its paper trail isn't part of the shipped package.
 
 ## Project Status
 
