@@ -93,7 +93,7 @@ Completed evidence now:
   local synthetic smoke path.
 
 Current frontier:
-- `docs/l6ar05-source-floor-parent-tracker-reconciliation.md` records the latest tactical rail closure: L6AR is reconciled and intentionally created no successor issue, no cron mutation, no second attempt, and no Gate/provider/write movement.
+- `archive/build-rails/docs/l6ar05-source-floor-parent-tracker-reconciliation.md` (moved from `docs/` in the slimming pass; see `archive/build-rails/README.md`) records the latest tactical rail closure: L6AR is reconciled and intentionally created no successor issue, no cron mutation, no second attempt, and no Gate/provider/write movement.
 - The recommended next work is a human-reviewed fleet-adoption contract followed by the smallest read-only pilot, not another blind metadata retry.
 - Update 2026-06-09: the `unauthorized_narrowing` root cause behind the #412 zero-item receipt was fixed upstream in the reference adapter; a live wiki-scope recall through the adapter now returns relevant, provenance-tagged items with `degraded: false`. Read-side usefulness is demonstrated at the adapter layer; remaining work is identity-bound fleet consumption and eval-vs-baseline, not zero-items investigation.
 - Older L6 positive-authorization, supervised source-card, runtime-integration, and auth-repair rails remain historical bounded evidence, not standing authority.
